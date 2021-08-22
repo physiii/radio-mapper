@@ -1,0 +1,56 @@
+Determining if the function libusb_handle_events_timeout_completed exists failed with the following output:
+Change Dir: /home/andy/code/librtlsdr/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake cmTC_d75f6/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_d75f6.dir/build.make CMakeFiles/cmTC_d75f6.dir/build
+gmake[1]: Entering directory '/home/andy/code/librtlsdr/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_d75f6.dir/CheckFunctionExists.c.o
+/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=libusb_handle_events_timeout_completed -o CMakeFiles/cmTC_d75f6.dir/CheckFunctionExists.c.o -c /usr/share/cmake-3.18/Modules/CheckFunctionExists.c
+Linking C executable cmTC_d75f6
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d75f6.dir/link.txt --verbose=1
+/usr/bin/cc  -DCHECK_FUNCTION_EXISTS=libusb_handle_events_timeout_completed -rdynamic CMakeFiles/cmTC_d75f6.dir/CheckFunctionExists.c.o -o cmTC_d75f6 
+/usr/bin/ld: CMakeFiles/cmTC_d75f6.dir/CheckFunctionExists.c.o: in function `main':
+CheckFunctionExists.c:(.text+0x14): undefined reference to `libusb_handle_events_timeout_completed'
+collect2: error: ld returned 1 exit status
+gmake[1]: *** [CMakeFiles/cmTC_d75f6.dir/build.make:106: cmTC_d75f6] Error 1
+gmake[1]: Leaving directory '/home/andy/code/librtlsdr/build/CMakeFiles/CMakeTmp'
+gmake: *** [Makefile:140: cmTC_d75f6/fast] Error 2
+
+
+
+Determining if the function libusb_error_name exists failed with the following output:
+Change Dir: /home/andy/code/librtlsdr/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake cmTC_54007/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_54007.dir/build.make CMakeFiles/cmTC_54007.dir/build
+gmake[1]: Entering directory '/home/andy/code/librtlsdr/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_54007.dir/CheckFunctionExists.c.o
+/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=libusb_error_name -o CMakeFiles/cmTC_54007.dir/CheckFunctionExists.c.o -c /usr/share/cmake-3.18/Modules/CheckFunctionExists.c
+Linking C executable cmTC_54007
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_54007.dir/link.txt --verbose=1
+/usr/bin/cc  -DCHECK_FUNCTION_EXISTS=libusb_error_name -rdynamic CMakeFiles/cmTC_54007.dir/CheckFunctionExists.c.o -o cmTC_54007 
+/usr/bin/ld: CMakeFiles/cmTC_54007.dir/CheckFunctionExists.c.o: in function `main':
+CheckFunctionExists.c:(.text+0x14): undefined reference to `libusb_error_name'
+collect2: error: ld returned 1 exit status
+gmake[1]: *** [CMakeFiles/cmTC_54007.dir/build.make:106: cmTC_54007] Error 1
+gmake[1]: Leaving directory '/home/andy/code/librtlsdr/build/CMakeFiles/CMakeTmp'
+gmake: *** [Makefile:140: cmTC_54007/fast] Error 2
+
+
+
+Determining if the function pthread_create exists in the pthreads failed with the following output:
+Change Dir: /home/andy/code/librtlsdr/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake cmTC_9bdd8/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_9bdd8.dir/build.make CMakeFiles/cmTC_9bdd8.dir/build
+gmake[1]: Entering directory '/home/andy/code/librtlsdr/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_9bdd8.dir/CheckFunctionExists.c.o
+/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=pthread_create -o CMakeFiles/cmTC_9bdd8.dir/CheckFunctionExists.c.o -c /usr/share/cmake-3.18/Modules/CheckFunctionExists.c
+Linking C executable cmTC_9bdd8
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_9bdd8.dir/link.txt --verbose=1
+/usr/bin/cc  -DCHECK_FUNCTION_EXISTS=pthread_create -rdynamic CMakeFiles/cmTC_9bdd8.dir/CheckFunctionExists.c.o -o cmTC_9bdd8  -lpthreads 
+/usr/bin/ld: cannot find -lpthreads
+collect2: error: ld returned 1 exit status
+gmake[1]: *** [CMakeFiles/cmTC_9bdd8.dir/build.make:106: cmTC_9bdd8] Error 1
+gmake[1]: Leaving directory '/home/andy/code/librtlsdr/build/CMakeFiles/CMakeTmp'
+gmake: *** [Makefile:140: cmTC_9bdd8/fast] Error 2
+
+
+

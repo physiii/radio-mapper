@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG -rdynamic CMakeFiles/rtl_adsb.dir/rtl_adsb.c.o -o rtl_adsb  -Wl,-rpath,/home/andy/code/librtlsdr/build/src: librtlsdr.so.0.5git libconvenience_static.a -lusb-1.0 -lpthread -lm 

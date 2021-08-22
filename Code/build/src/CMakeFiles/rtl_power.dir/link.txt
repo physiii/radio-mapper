@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG -rdynamic CMakeFiles/rtl_power.dir/rtl_power.c.o -o rtl_power  -Wl,-rpath,/home/andy/code/librtlsdr/build/src: librtlsdr.so.0.5git libconvenience_static.a -lusb-1.0 -lpthread -lm 
