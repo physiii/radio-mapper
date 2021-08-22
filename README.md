@@ -1,5 +1,5 @@
 # Objective
-To setup a cluser of capture devices (Raspberry Pi + SDR) across the city recording IQ values. Then have a public facing website [radio-mapper.org](https://radio-mapper.org) that aggregates processed IQ data to give you a google map location of radio sources.
+To setup a cluser of capture devices (Raspberry Pi + SDR) across the city recording IQ values. Then have a public facing website [radio-mapper.org](https://radio-mapper.org) that aggregates processed IQ data to give you a google map location of radio sources and filters.
 
 
 ## Research
