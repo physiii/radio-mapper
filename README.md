@@ -3,7 +3,7 @@ To setup a cluser of capture devices (Raspberry Pi + SDR) across the city record
 
 
 ## Research
-Stefan Scholl presented this [https://www.youtube.com/watch?v=Km4TU17b05s&t=925s](https://www.youtube.com/watch?v=Km4TU17b05s&t=925s). You can see in the slide a link to async_rearrangements branch of librtlsdr. This is a good starting point for this project.
+Stefan Scholl presented this [Experiments on Transmitter Localization with TDOA](https://www.youtube.com/watch?v=Km4TU17b05s&t=925s). You can see in the slide a link to async_rearrangements branch of librtlsdr. This is a good starting point for this project.
 
 
 ### Documents
