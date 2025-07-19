@@ -1,0 +1,714 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radio-Mapper Emergency Response System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: #f8f9fa;
+            color: #202124;
+            line-height: 1.5;
+        }
+        
+        .header {
+            background: #1a73e8;
+            color: white;
+            padding: 12px 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            font-weight: 500;
+            margin: 0;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #34a853;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .main-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            height: calc(100vh - 60px);
+            gap: 0;
+        }
+        
+        .sidebar {
+            background: white;
+            border-right: 1px solid #dadce0;
+            overflow-y: auto;
+        }
+        
+        .map-container {
+            position: relative;
+        }
+        
+        #map { 
+            height: 100%;
+            width: 100%;
+        }
+        
+        .panel {
+            background: white;
+            border-bottom: 1px solid #dadce0;
+        }
+        
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid #e8eaed;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .panel-header h3 {
+            font-size: 14px;
+            font-weight: 500;
+            color: #5f6368;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0;
+        }
+        
+        .panel-content {
+            padding: 16px;
+        }
+        
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .form-group label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #5f6368;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .form-control {
+            padding: 8px 12px;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+            transition: border-color 0.2s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1);
+        }
+        
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background: #1a73e8;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1557b0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+            border-radius: 4px;
+            background: #f8f9fa;
+        }
+        
+        .legend-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        
+        .buoy-node { background: #34a853; }
+        .emergency-signal { background: #ea4335; }
+        .commercial-signal { background: #fbbc04; }
+        
+        .legend-text {
+            font-size: 13px;
+            color: #5f6368;
+        }
+        
+        .alert-panel {
+            background: linear-gradient(135deg, #ea4335, #d93025);
+            color: white;
+            margin: 16px;
+            padding: 16px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .alert-panel.active {
+            display: block;
+            animation: alertPulse 1s ease-in-out infinite alternate;
+        }
+        
+        @keyframes alertPulse {
+            from { box-shadow: 0 4px 8px rgba(234, 67, 53, 0.3); }
+            to { box-shadow: 0 8px 16px rgba(234, 67, 53, 0.5); }
+        }
+        
+        .alert-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .alert-icon {
+            font-size: 24px;
+        }
+        
+        .alert-details h4 {
+            font-size: 16px;
+            font-weight: 500;
+            margin: 0 0 4px 0;
+        }
+        
+        .alert-details p {
+            font-size: 14px;
+            opacity: 0.9;
+            margin: 0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a73e8;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #5f6368;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .timestamp {
+            font-size: 11px;
+            color: #9aa0a6;
+            margin-top: 16px;
+            text-align: center;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid #dadce0;
+                max-height: 40vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span class="material-icons">radar</span>
+        <h1>Radio-Mapper Emergency Response System</h1>
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <span style="font-size: 13px;">Live Monitoring</span>
+        </div>
+    </div>
+
+    <div class="alert-panel" id="emergencyAlert">
+        <div class="alert-content">
+            <span class="material-icons alert-icon">warning</span>
+            <div class="alert-details">
+                <h4>Emergency Signal Detected</h4>
+                <p id="alertText">Signal detected at 121.5 MHz - Aviation Emergency</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="material-icons" style="font-size: 18px;">tune</span>
+                    <h3>Signal Filters</h3>
+                </div>
+                <div class="panel-content">
+                    <div class="filter-grid">
+                        <div class="form-group">
+                            <label for="minFreq">Min Freq (MHz)</label>
+                            <input type="number" id="minFreq" class="form-control" value="0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="maxFreq">Max Freq (MHz)</label>
+                            <input type="number" id="maxFreq" class="form-control" value="1000" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label for="signalType">Signal Type</label>
+                        <select id="signalType" class="form-control">
+                            <option value="all">All Types</option>
+                            <option value="emergency">Emergency</option>
+                            <option value="FM">FM Radio</option>
+                            <option value="Digital">Digital</option>
+                            <option value="LoRa">LoRa/IoT</option>
+                        </select>
+                    </div>
+                    <button id="applyFilters" class="btn btn-primary" style="width: 100%;">
+                        <span class="material-icons" style="font-size: 18px;">search</span>
+                        Apply Filters
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="material-icons" style="font-size: 18px;">legend_toggle</span>
+                    <h3>Map Legend</h3>
+                </div>
+                <div class="panel-content">
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-icon buoy-node"></div>
+                            <span class="legend-text">Buoys</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon emergency-signal"></div>
+                            <span class="legend-text">Emergency Signals</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon commercial-signal"></div>
+                            <span class="legend-text">Commercial Signals</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="material-icons" style="font-size: 18px;">search</span>
+                    <h3>Find Signal</h3>
+                </div>
+                <div class="panel-content">
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label for="searchFreq">Frequency (MHz)</label>
+                        <input type="number" id="searchFreq" class="form-control" placeholder="e.g. 462.5625" step="0.0001">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label for="searchDescription">Description</label>
+                        <input type="text" id="searchDescription" class="form-control" placeholder="e.g. Rogue transmitter, FRS radio">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label for="searchTimeframe">Search timeframe</label>
+                        <select id="searchTimeframe" class="form-control">
+                            <option value="15">Last 15 minutes</option>
+                            <option value="60">Last hour</option>
+                            <option value="360">Last 6 hours</option>
+                            <option value="1440">Last 24 hours</option>
+                        </select>
+                    </div>
+                    <button id="submitSignalRequest" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
+                        <span class="material-icons" style="font-size: 18px;">location_searching</span>
+                        Find This Signal
+                    </button>
+                    <div id="searchResults" style="display: none; margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 4px;">
+                        <strong>Search Results:</strong>
+                        <div id="searchResultsContent"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="material-icons" style="font-size: 18px;">analytics</span>
+                    <h3>System Status</h3>
+                </div>
+                <div class="panel-content">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value" id="buoyCount">4</span>
+                            <span class="stat-label">Active Buoys</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="signalCount">4</span>
+                            <span class="stat-label">Signals Detected</span>
+                        </div>
+                    </div>
+                    <div class="timestamp" id="lastUpdate">
+                        Last update: <span id="updateTime"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        var map = L.map('map', {
+            zoomControl: false
+        }).setView([35.4676, -97.5164], 11);  // Oklahoma City center
+        
+        // Add zoom control to top right
+        L.control.zoom({
+            position: 'topright'
+        }).addTo(map);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Custom icons with Material Design style
+        var buoyIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style='background: #34a853; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);'></div>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
+        });
+
+        var emergencyIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style='background: #ea4335; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); animation: emergencyPulse 1s infinite;'></div>
+                   <style>@keyframes emergencyPulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }</style>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
+        });
+
+        var commercialIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style='background: #fbbc04; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);'></div>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
+        });
+
+        // Store markers for filtering
+        var signalMarkers = [];
+        var signalData = [];
+
+        // Enhanced buoy data - positioned around Oklahoma City metro area
+        var buoyData = [
+            {id: 1, name: 'OKC North', lat: 35.5200, lng: -97.5164, status: 'active', lastSeen: '2025-01-18T16:30:00Z'},
+            {id: 2, name: 'OKC East', lat: 35.4676, lng: -97.4200, status: 'active', lastSeen: '2025-01-18T16:29:45Z'},
+            {id: 3, name: 'OKC South', lat: 35.4100, lng: -97.5164, status: 'active', lastSeen: '2025-01-18T16:30:15Z'},
+            {id: 4, name: 'OKC West', lat: 35.4676, lng: -97.6200, status: 'active', lastSeen: '2025-01-18T16:30:30Z'}
+        ];
+
+        // Enhanced signal data with emergency signals - realistic OKC positions
+        var enhancedSignalData = [
+            {
+                id: 1, frequency: 121.5, signal_strength: -45, lat: 35.4850, lng: -97.5350,
+                detected_by: [1, 2, 3], timestamp: '2025-01-18T16:29:30Z', 
+                signal_type: 'emergency', classification: 'Aviation Emergency - Will Rogers Airport Area',
+                confidence: 0.95, triangulated: true
+            },
+            {
+                id: 2, frequency: 243.0, signal_strength: -52, lat: 35.4400, lng: -97.4800,
+                detected_by: [1, 3, 4], timestamp: '2025-01-18T16:28:15Z',
+                signal_type: 'emergency', classification: 'Military Emergency - Tinker AFB Area',
+                confidence: 0.87, triangulated: true
+            },
+            {
+                id: 3, frequency: 101.1, signal_strength: -38, lat: 35.4676, lng: -97.5164,
+                detected_by: [2, 3], timestamp: '2025-01-18T16:30:42Z',
+                signal_type: 'FM', classification: 'KATT FM Radio (OKC)',
+                confidence: 0.99, triangulated: false
+            },
+            {
+                id: 4, frequency: 155.16, signal_strength: -61, lat: 35.4900, lng: -97.5400,
+                detected_by: [1, 2, 4], timestamp: '2025-01-18T16:29:12Z',
+                signal_type: 'public_safety', classification: 'OKC Police/Fire Emergency',
+                confidence: 0.78, triangulated: true
+            }
+        ];
+
+        // Display buoys
+        buoyData.forEach(buoy => {
+            var popupContent = `
+                <div style="font-family: Roboto, sans-serif;">
+                    <h4 style="margin: 0 0 8px 0; color: #202124;">${buoy.name}</h4>
+                    <p style="margin: 4px 0; font-size: 13px; color: #5f6368;">
+                        <strong>Status:</strong> ${buoy.status.toUpperCase()}<br>
+                        <strong>ID:</strong> ${buoy.id}<br>
+                        <strong>Last Seen:</strong> ${new Date(buoy.lastSeen).toLocaleString()}
+                    </p>
+                </div>
+            `;
+            L.marker([buoy.lat, buoy.lng], {icon: buoyIcon}).addTo(map)
+                .bindPopup(popupContent);
+        });
+
+        function displaySignals(signals) {
+            // Clear existing markers
+            signalMarkers.forEach(marker => map.removeLayer(marker));
+            signalMarkers = [];
+
+            // Add new markers
+            signals.forEach(signal => {
+                var icon = signal.signal_type === 'emergency' ? emergencyIcon : commercialIcon;
+                var confidenceText = signal.triangulated ? `Triangulated (${(signal.confidence * 100).toFixed(0)}% confidence)` : 'Single detection';
+                
+                var popupContent = `
+                    <div style="font-family: Roboto, sans-serif;">
+                        <h4 style="margin: 0 0 8px 0; color: ${signal.signal_type === 'emergency' ? '#ea4335' : '#202124'};">
+                            ${signal.classification}
+                        </h4>
+                        <p style="margin: 4px 0; font-size: 13px; color: #5f6368;">
+                            <strong>Frequency:</strong> ${signal.frequency} MHz<br>
+                            <strong>Signal Strength:</strong> ${signal.signal_strength} dBm<br>
+                            <strong>Type:</strong> ${signal.signal_type}<br>
+                            <strong>Detected by:</strong> Buoy ${signal.detected_by.join(', ')}<br>
+                            <strong>Status:</strong> ${confidenceText}<br>
+                            <strong>Time:</strong> ${new Date(signal.timestamp).toLocaleString()}
+                        </p>
+                    </div>
+                `;
+                
+                var marker = L.marker([signal.lat, signal.lng], {icon: icon}).addTo(map)
+                    .bindPopup(popupContent);
+                signalMarkers.push(marker);
+            });
+
+            // Update counts
+            document.getElementById('signalCount').textContent = signals.length;
+            document.getElementById('buoyCount').textContent = buoyData.filter(b => b.status === 'active').length;
+        }
+
+        function applyFilters() {
+            var minFreq = parseFloat(document.getElementById('minFreq').value) || 0;
+            var maxFreq = parseFloat(document.getElementById('maxFreq').value) || 1000;
+            var signalType = document.getElementById('signalType').value;
+
+            var filteredSignals = enhancedSignalData.filter(signal => {
+                var freqMatch = signal.frequency >= minFreq && signal.frequency <= maxFreq;
+                var typeMatch = signalType === 'all' || signal.signal_type === signalType;
+                return freqMatch && typeMatch;
+            });
+
+            displaySignals(filteredSignals);
+        }
+
+        function updateTimestamp() {
+            document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
+        }
+
+        function checkEmergencySignals() {
+            var emergencySignals = enhancedSignalData.filter(s => s.signal_type === 'emergency');
+            if (emergencySignals.length > 0) {
+                var alert = document.getElementById('emergencyAlert');
+                var alertText = document.getElementById('alertText');
+                var latest = emergencySignals[emergencySignals.length - 1];
+                alertText.textContent = `Signal detected at ${latest.frequency} MHz - ${latest.classification}`;
+                alert.classList.add('active');
+            }
+        }
+
+        function submitSignalRequest() {
+            var frequency = parseFloat(document.getElementById('searchFreq').value);
+            var description = document.getElementById('searchDescription').value;
+            var timeframe = parseInt(document.getElementById('searchTimeframe').value);
+            
+            if (!frequency || frequency <= 0) {
+                alert('Please enter a valid frequency in MHz');
+                return;
+            }
+            
+            var request = {
+                frequency_mhz: frequency,
+                description: description,
+                max_age_minutes: timeframe,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Show loading state
+            var resultsDiv = document.getElementById('searchResults');
+            var resultsContent = document.getElementById('searchResultsContent');
+            resultsContent.innerHTML = 'Searching historical data...';
+            resultsDiv.style.display = 'block';
+            
+            // Simulate search (in production: send to API)
+            setTimeout(() => {
+                performSignalSearch(request);
+            }, 1000);
+        }
+        
+        function performSignalSearch(request) {
+            var resultsContent = document.getElementById('searchResultsContent');
+            var frequency = request.frequency_mhz;
+            
+            // Search through historical signal data
+            var matches = enhancedSignalData.filter(signal => {
+                return Math.abs(signal.frequency - frequency) < 0.01; // ±10 kHz tolerance
+            });
+            
+            if (matches.length > 0) {
+                var resultHtml = `<div style="color: #34a853; margin-bottom: 8px;">
+                    <strong>✓ Found ${matches.length} detection(s) of ${frequency} MHz</strong>
+                </div>`;
+                
+                matches.forEach(match => {
+                    var age = Math.floor(Math.random() * request.max_age_minutes); // Simulate age
+                    resultHtml += `
+                        <div style="font-size: 12px; margin: 4px 0; padding: 8px; background: white; border-radius: 4px;">
+                            <strong>Location:</strong> ${match.lat.toFixed(4)}, ${match.lng.toFixed(4)}<br>
+                            <strong>Signal:</strong> ${match.signal_strength} dBm<br>
+                            <strong>Detected by:</strong> Buoy ${match.detected_by.join(', ')}<br>
+                            <strong>Age:</strong> ${age} minutes ago<br>
+                            <strong>Confidence:</strong> ${(match.confidence * 100).toFixed(0)}%
+                        </div>
+                    `;
+                });
+                
+                // Add marker to map for found signals
+                matches.forEach(match => {
+                    var searchIcon = L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style='background: #ff9800; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); animation: searchPulse 2s infinite;'></div>
+                               <style>@keyframes searchPulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }</style>`,
+                        iconSize: [22, 22],
+                        iconAnchor: [11, 11]
+                    });
+                    
+                    var searchMarker = L.marker([match.lat, match.lng], {icon: searchIcon}).addTo(map)
+                        .bindPopup(`
+                            <div style="font-family: Roboto, sans-serif;">
+                                <h4 style="margin: 0 0 8px 0; color: #ff9800;">
+                                    User Search Result: ${frequency} MHz
+                                </h4>
+                                <p style="margin: 4px 0; font-size: 13px; color: #5f6368;">
+                                    <strong>Description:</strong> ${request.description || 'User requested signal'}<br>
+                                    <strong>Signal Strength:</strong> ${match.signal_strength} dBm<br>
+                                    <strong>Classification:</strong> ${match.classification}<br>
+                                    <strong>Detected by:</strong> Buoy ${match.detected_by.join(', ')}<br>
+                                    <strong>Triangulated Location</strong>
+                                </p>
+                            </div>
+                        `);
+                    
+                    // Remove search marker after 30 seconds
+                    setTimeout(() => {
+                        map.removeLayer(searchMarker);
+                    }, 30000);
+                });
+                
+                resultsContent.innerHTML = resultHtml;
+                
+            } else {
+                resultsContent.innerHTML = `
+                    <div style="color: #ea4335;">
+                        <strong>✗ No signals found at ${frequency} MHz</strong><br>
+                        <span style="font-size: 12px;">
+                            Try expanding the search timeframe or check nearby frequencies.
+                            The signal may not have been active when our buoys were monitoring this frequency.
+                        </span>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize
+        displaySignals(enhancedSignalData);
+        updateTimestamp();
+        checkEmergencySignals();
+        
+        // Update timestamp every 30 seconds
+        setInterval(updateTimestamp, 30000);
+
+        // Event listeners
+        document.getElementById('applyFilters').addEventListener('click', applyFilters);
+        document.getElementById('submitSignalRequest').addEventListener('click', submitSignalRequest);
+        
+        // Hide emergency alert after 10 seconds
+        setTimeout(() => {
+            document.getElementById('emergencyAlert').classList.remove('active');
+        }, 10000);
+    </script>
+</body>
+</html>
+

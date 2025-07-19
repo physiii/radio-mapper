@@ -1,0 +1,48 @@
+2025-07-18 20:18:52,379 - config_manager - INFO - Logging configured: level=INFO, file=radio-mapper.log
+2025-07-18 20:18:52,419 - config_manager - INFO - Auto-detected interfaces: {'ip_address': '192.168.1.43', 'gps_devices': ['/dev/ttyS0', '/dev/ttyS1'], 'sdr_devices': []}
+2025-07-18 20:18:57,714 - config_manager - INFO - Logging configured: level=INFO, file=radio-mapper.log
+2025-07-18 20:18:57,715 - config_manager - INFO - Configuration validation passed
+2025-07-18 20:18:57,967 - config_manager - INFO - Auto-detected interfaces: {'ip_address': '192.168.1.43', 'gps_devices': ['/dev/ttyS0', '/dev/ttyS1'], 'sdr_devices': []}
+2025-07-18 20:46:52,974 - config_manager - INFO - Logging configured: level=INFO, file=radio-mapper.log
+2025-07-18 20:46:53,672 - central_processor - INFO - Starting Central Signal Processing Server
+2025-07-18 20:46:53,672 - central_processor - INFO - Flask server started on http://0.0.0.0:5001
+2025-07-18 20:46:53,673 - central_processor - INFO - Starting WebSocket server on ws://0.0.0.0:8081
+2025-07-18 20:46:53,673 - websockets.server - INFO - server listening on 0.0.0.0:8081
+2025-07-18 20:46:53,673 - central_processor - INFO - Central processor server is operational
+2025-07-18 20:46:53,683 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.1.43:5001
+2025-07-18 20:46:53,683 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-18 20:47:04,151 - config_manager - INFO - Logging configured: level=INFO, file=radio-mapper.log
+2025-07-18 20:47:04,217 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.43:5000
+2025-07-18 20:47:04,217 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-18 20:47:13,843 - config_manager - INFO - Logging configured: level=INFO, file=radio-mapper.log
+2025-07-18 20:47:13,981 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.43:5000
+2025-07-18 20:47:13,981 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-18 20:47:16,497 - werkzeug - INFO - 127.0.0.1 - - [18/Jul/2025 20:47:16] "GET / HTTP/1.1" 200 -
+2025-07-18 20:52:10,711 - werkzeug - INFO - 127.0.0.1 - - [18/Jul/2025 20:52:10] "GET / HTTP/1.1" 200 -
+2025-07-18 20:58:58,308 - config_manager - INFO - Logging configured: level=INFO, file=radio-mapper.log
+2025-07-18 20:58:58,386 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.43:5000
+2025-07-18 20:58:58,386 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-18 20:59:03,563 - werkzeug - INFO - 127.0.0.1 - - [18/Jul/2025 20:59:03] "GET / HTTP/1.1" 200 -
+2025-07-18 20:59:03,936 - werkzeug - INFO - 127.0.0.1 - - [18/Jul/2025 20:59:03] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-07-18 21:03:45,980 - config_manager - INFO - Logging configured: level=INFO, file=radio-mapper.log
+2025-07-18 21:03:46,022 - config_manager - INFO - Auto-detected interfaces: {'ip_address': '192.168.1.43', 'gps_devices': ['/dev/ttyS0', '/dev/ttyS1'], 'sdr_devices': []}
+2025-07-18 21:07:32,364 - werkzeug - INFO - 127.0.0.1 - - [18/Jul/2025 21:07:32] "GET / HTTP/1.1" 200 -
+2025-07-18 21:07:50,815 - config_manager - INFO - Logging configured: level=INFO, file=radio-mapper.log
+2025-07-18 21:07:50,880 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.43:5000
+2025-07-18 21:07:50,880 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-18 21:07:54,809 - werkzeug - INFO - 127.0.0.1 - - [18/Jul/2025 21:07:54] "GET / HTTP/1.1" 200 -

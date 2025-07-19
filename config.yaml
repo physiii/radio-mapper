@@ -1,0 +1,159 @@
+# Radio-Mapper Emergency Response System Configuration
+
+# Buoy Configuration
+buoy:
+  id: "OKC_BUOY_1"                    # Unique identifier for this buoy
+  name: "Oklahoma City North Buoy"     # Human-readable name
+  
+  # Physical Location (fallback if GPS unavailable)
+  location:
+    latitude: 35.4676                  # Oklahoma City coordinates
+    longitude: -97.5164
+    altitude: 365.76                   # meters above sea level
+    
+  # GPS Configuration
+  gps:
+    enabled: true                      # Use GPS for precise location/timing
+    device: "/dev/ttyUSB0"            # GPS device path (common for USB GPS)
+    backup_device: "/dev/ttyACM0"     # Alternative GPS device path
+    timeout_seconds: 30               # GPS acquisition timeout
+    use_fallback_location: true       # Use config location if GPS fails
+    
+# SDR Configuration  
+sdr:
+  device_index: 0                     # RTL-SDR device index (0 for first device)
+  sample_rate: 2048000               # Sample rate in Hz
+  center_frequency_mhz: 121.5        # Default center frequency
+  gain: "auto"                       # Gain setting ("auto" or dB value)
+  ppm_error: 0                       # PPM frequency correction
+  
+# Central Server Configuration
+central_server:
+  # For clients connecting to central server
+  websocket_url: "ws://localhost:8081"    # WebSocket URL for real-time data
+  http_url: "http://localhost:5001"       # HTTP API URL
+  
+  # For running the central server
+  bind_host: "0.0.0.0"               # Bind to all interfaces (use "localhost" for local only)
+  websocket_port: 8081               # WebSocket server port
+  http_port: 5001                    # HTTP API server port
+  
+# Time Synchronization
+timing:
+  method: "gps"                      # Options: "gps", "ntp", "ptp", "system"
+  
+  # GPS timing (most precise)
+  gps_timing:
+    enabled: true
+    pulse_per_second: true           # Use GPS PPS signal if available
+    pps_device: "/dev/pps0"         # PPS device path
+    
+  # NTP timing (good for network sync)
+  ntp:
+    enabled: true                    # Fallback to NTP if GPS fails
+    servers:
+      - "time.nist.gov"
+      - "pool.ntp.org"
+      - "time.google.com"
+    sync_interval_minutes: 10
+    
+  # PTP timing (for precise network sync)
+  ptp:
+    enabled: false                   # Precision Time Protocol (enterprise networks)
+    domain: 0
+    
+  # Timing accuracy requirements
+  target_accuracy_microseconds: 1    # Target timing accuracy (1μs for good TDoA)
+  max_acceptable_microseconds: 100   # Maximum acceptable timing error
+  
+# Signal Detection
+signal_detection:
+  # Detection thresholds
+  power_threshold_dbm: -70           # Minimum signal strength to detect
+  confidence_threshold: 0.6          # Minimum confidence for valid detection
+  
+  # Emergency frequencies to monitor (MHz)
+  emergency_frequencies:
+    - 121.5                          # Aviation emergency
+    - 243.0                          # Military emergency  
+    - 406.025                        # EPIRB/PLB emergency beacons
+    - 156.8                          # Marine emergency (Channel 16)
+    - 462.675                        # GMRS emergency
+    
+  # Frequency ranges to scan (MHz)
+  scan_ranges:
+    aviation: [118.0, 136.0]         # Aviation band
+    public_safety: [155.0, 160.0]    # Public safety
+    amateur_2m: [144.0, 148.0]       # Amateur 2m band
+    amateur_70cm: [420.0, 450.0]     # Amateur 70cm band
+    
+  # Processing parameters
+  fft_size: 1024                     # FFT size for spectrum analysis
+  overlap: 0.5                       # Overlap ratio for processing
+  correlation_window_seconds: 5.0    # Time window for signal correlation
+  
+# TDoA Configuration
+tdoa:
+  minimum_buoys: 3                   # Minimum buoys required for triangulation
+  maximum_baseline_km: 50            # Maximum distance between buoys (km)
+  speed_of_light: 299792458          # m/s (for calculations)
+  
+  # Quality thresholds
+  minimum_snr_db: 10                 # Minimum SNR for TDoA processing
+  maximum_timing_error_us: 10        # Maximum timing error between buoys
+  confidence_threshold: 0.7          # Minimum confidence for triangulation
+  
+# Logging Configuration
+logging:
+  level: "INFO"                      # DEBUG, INFO, WARNING, ERROR
+  file: "radio-mapper.log"           # Log file path
+  max_size_mb: 100                   # Maximum log file size
+  backup_count: 5                    # Number of backup log files
+  
+  # Component-specific logging
+  components:
+    sdr: "INFO"
+    gps: "INFO"
+    tdoa: "DEBUG"
+    network: "WARNING"
+    
+# Data Storage
+storage:
+  # Signal history
+  max_signals_memory: 1000           # Maximum signals to keep in memory
+  save_to_file: true                 # Save signal data to files
+  data_directory: "./data"           # Directory for data files
+  
+  # Cleanup settings
+  max_age_hours: 24                  # Maximum age of stored signals
+  cleanup_interval_minutes: 60       # How often to clean old data
+  
+# Web Interface
+web:
+  enabled: true                      # Enable web dashboard
+  port: 5000                         # Web interface port (different from API)
+  auto_refresh_seconds: 5            # Auto-refresh interval
+  
+  # Map settings
+  default_zoom: 11                   # Default map zoom level
+  max_zoom: 18                       # Maximum zoom level
+  
+# Development/Testing
+development:
+  simulate_gps: false                # Simulate GPS when no device present
+  simulate_signals: false            # Generate test signals
+  debug_timing: false                # Extra timing debug info
+  mock_sdr: false                    # Use mock SDR data instead of real device
+  
+# Emergency Response
+emergency:
+  auto_alert: true                   # Automatically alert on emergency signals
+  alert_methods:
+    - "console"                      # Print to console
+    - "log"                          # Write to log file
+    # - "email"                      # Send email alerts (requires email config)
+    # - "webhook"                    # HTTP webhook (requires webhook config)
+    
+  # Alert thresholds
+  emergency_confidence_threshold: 0.8  # Higher confidence required for emergency alerts
+  repeat_alert_minutes: 5            # Don't repeat same alert for X minutes 

@@ -1,0 +1,27 @@
+# Radio-Mapper Emergency Response System Configuration
+# Example: South Oklahoma City Buoy
+
+# Buoy Configuration  
+buoy:
+  id: "OKC_BUOY_SOUTH"
+  name: "Oklahoma City South Buoy"
+  
+  # Physical Location - South OKC (near Moore)
+  location:
+    latitude: 35.3776     # South of downtown
+    longitude: -97.5164
+    altitude: 360.0
+    
+  # GPS Configuration
+  gps:
+    enabled: true
+    device: "/dev/ttyUSB0"
+    backup_device: "/dev/ttyACM0"
+    timeout_seconds: 30
+    use_fallback_location: true
+    
+# Central Server Configuration (same for all buoys)
+central_server:
+  # Connect to central server (replace with actual server IP)
+  websocket_url: "ws://your-server.com:8081" 
+  http_url: "http://your-server.com:5001" 
