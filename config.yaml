@@ -7,15 +7,15 @@ buoy:
   
   # Physical Location (fallback if GPS unavailable)
   location:
-    latitude: 35.4676                  # Oklahoma City coordinates
-    longitude: -97.5164
+    latitude: 35.55132013715708        # Your actual GPS coordinates
+    longitude: -97.53221383761282
     altitude: 365.76                   # meters above sea level
     
   # GPS Configuration
   gps:
     enabled: true                      # Use GPS for precise location/timing
-    device: "/dev/ttyUSB0"            # GPS device path (common for USB GPS)
-    backup_device: "/dev/ttyACM0"     # Alternative GPS device path
+    device: "/dev/ttyACM0"            # GPS device path (U-Blox GPS)
+    backup_device: "/dev/ttyUSB0"     # Alternative GPS device path
     timeout_seconds: 30               # GPS acquisition timeout
     use_fallback_location: true       # Use config location if GPS fails
     
