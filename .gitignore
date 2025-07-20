@@ -48,6 +48,14 @@ nosetests.xml
 coverage.xml
 *.cover
 *.py,cover
+
+# Radio-Mapper specific temporary files
+*.log
+gps_*.txt
+ublox_*.txt
+iq_capture_*.bin
+iq_capture_*.png
+config-buoy-*.yaml
 .hypothesis/
 .pytest_cache/
 
