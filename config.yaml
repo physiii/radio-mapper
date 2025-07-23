@@ -2,7 +2,6 @@
 
 # Buoy Configuration
 buoy:
-  id: "OKC_BUOY_1"                    # Unique identifier for this buoy
   name: "Oklahoma City North Buoy"     # Human-readable name
   
   # Physical Location (fallback if GPS unavailable)
@@ -80,17 +79,65 @@ signal_detection:
     - 156.8                          # Marine emergency (Channel 16)
     - 462.675                        # GMRS emergency
     
+  # Testing frequencies (strong known transmitters)
+  testing_frequencies:
+    - 105.7                          # Local NPR station
+    - 101.9                          # Local classical station
+    
   # Frequency ranges to scan (MHz)
   scan_ranges:
     aviation: [118.0, 136.0]         # Aviation band
     public_safety: [155.0, 160.0]    # Public safety
     amateur_2m: [144.0, 148.0]       # Amateur 2m band
     amateur_70cm: [420.0, 450.0]     # Amateur 70cm band
+    fm_broadcast: [88.0, 108.0]      # FM broadcast band (for testing TDoA)
+    
+  # Test frequencies with known transmitter locations
+  test_frequencies:
+    npr_105_7: 105.7                 # NPR station for TDoA testing
+    classical_101_9: 101.9           # Classical station (if available)
+    # Add your local strong FM stations here
     
   # Processing parameters
   fft_size: 1024                     # FFT size for spectrum analysis
   overlap: 0.5                       # Overlap ratio for processing
   correlation_window_seconds: 5.0    # Time window for signal correlation
+  
+  # Synchronized scanning (CRITICAL for TDoA)
+  synchronized_scanning:
+    enabled: true                    # Enable GPS-synchronized frequency hopping
+    frequency_dwell_seconds: 5       # Time to spend on each frequency
+    gps_sync_epoch: 0                # GPS timestamp offset (0 = top of minute)
+    
+    # Priority frequency schedule (all buoys follow this exact sequence)
+    priority_schedule:
+      - frequency: 105.7             # NPR (testing)
+        duration: 5                  # seconds on this frequency
+        type: "testing"
+      - frequency: 121.5             # Aviation emergency
+        duration: 10                 # longer dwell for emergency
+        type: "emergency"
+      - frequency: 243.0             # Military emergency  
+        duration: 10
+        type: "emergency"
+      - frequency: 156.8             # Marine emergency
+        duration: 5
+        type: "emergency"
+      - frequency: 101.9             # Another test frequency
+        duration: 5
+        type: "testing"
+    
+    # Total cycle time: 35 seconds, then repeats
+    # All buoys switch frequencies at GPS timestamps: 0, 5, 15, 25, 30 seconds
+    
+  # Scanning behavior
+  scan_dwell_time_ms: 100            # Time to spend on each frequency (milliseconds)
+  scan_cycle_time_s: 2.0             # Complete cycle through all ranges (seconds)
+  simultaneous_scanning: true        # All buoys scan same frequency simultaneously
+  
+  # FM broadcast specific settings (for testing)
+  fm_bandwidth_khz: 200              # FM signal bandwidth for correlation
+  fm_detection_threshold_dbm: -50    # Lower threshold for strong FM signals
   
 # TDoA Configuration
 tdoa:
@@ -141,7 +188,7 @@ web:
 # Development/Testing
 development:
   simulate_gps: false                # Simulate GPS when no device present
-  simulate_signals: false            # Generate test signals
+  simulate_signals: true             # Generate test signals
   debug_timing: false                # Extra timing debug info
   mock_sdr: false                    # Use mock SDR data instead of real device
   

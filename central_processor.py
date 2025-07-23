@@ -16,7 +16,7 @@ import json
 import logging
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Set
 from dataclasses import dataclass, asdict
 import numpy as np
@@ -35,6 +35,7 @@ class NodeConnection:
     last_seen: datetime
     position: tuple  # (lat, lng)
     status: str = "active"
+    latest_signal_timestamp: Optional[datetime] = None
 
 @dataclass
 class LiveSignalDetection:
@@ -82,6 +83,10 @@ class CentralProcessor:
         self.triangulated_signals: List[TriangulatedSignal] = []
         self.correlation_window_seconds = 5.0  # Signals within 5 seconds are correlated
         
+        # Buffer management
+        self.buffer_max_age_seconds = 24 * 60 * 60  # 24 hours
+        self.buffer_cleanup_interval_seconds = 5 * 60  # 5 minutes
+        
         # Flask app for web interface
         self.flask_app = Flask(__name__)
         self.setup_flask_routes()
@@ -103,7 +108,8 @@ class CentralProcessor:
                     'lat': node.position[0],
                     'lng': node.position[1],
                     'status': node.status,
-                    'lastSeen': node.last_seen.isoformat() + 'Z'
+                    'lastSeen': node.last_seen.isoformat(),
+                    'latest_signal_timestamp': node.latest_signal_timestamp.isoformat() if node.latest_signal_timestamp else None
                 })
             return jsonify(node_list)
         
@@ -127,6 +133,58 @@ class CentralProcessor:
                     'accuracy_meters': signal.accuracy_meters
                 })
             return jsonify(signal_list)
+        
+        @self.flask_app.route('/api/detections')
+        def get_detections():
+            """Get list of recent signal detections from all buoys"""
+            detection_list = []
+            
+            # Get detections from last 10 minutes, grouped by frequency to ensure all frequencies are represented
+            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+            recent_detections = []
+            
+            # Group by frequency to ensure balanced representation
+            freq_groups = {}
+            
+            for detection in reversed(self.signal_buffer):  # Start from newest
+                try:
+                    detection_time = datetime.fromisoformat(detection.timestamp_utc.replace('Z', '+00:00'))
+                    if detection_time < cutoff_time:
+                        continue
+                except (ValueError, TypeError):
+                    # If timestamp is invalid, skip it
+                    logger.warning(f"Skipping detection with invalid timestamp: {detection.timestamp_utc}")
+                    continue
+
+                freq = detection.frequency_mhz
+                if freq not in freq_groups:
+                    freq_groups[freq] = []
+                    
+                # Keep up to 20 most recent detections per frequency
+                if len(freq_groups[freq]) < 20:
+                    freq_groups[freq].append(detection)
+            
+            # Flatten the groups
+            for freq_detections in freq_groups.values():
+                recent_detections.extend(freq_detections)
+            
+            # Sort by timestamp (newest first)
+            recent_detections.sort(key=lambda d: d.timestamp_utc, reverse=True)
+            
+            for i, detection in enumerate(recent_detections):
+                detection_list.append({
+                    'id': f"DET_{i}",
+                    'frequency_mhz': detection.frequency_mhz,
+                    'signal_strength_dbm': detection.signal_strength_dbm,
+                    'lat': detection.lat,
+                    'lng': detection.lng,
+                    'node_id': detection.node_id,
+                    'timestamp': detection.timestamp_utc,
+                    'signal_type': detection.signal_type,
+                    'confidence': detection.confidence,
+                    'triangulated': False
+                })
+            return jsonify(detection_list)
         
         @self.flask_app.route('/api/search_signal', methods=['POST'])
         def search_signal():
@@ -180,7 +238,7 @@ class CentralProcessor:
         else:
             return f"{signal_type.title()} Signal"
     
-    async def handle_node_connection(self, websocket, path):
+    async def handle_node_connection(self, websocket):
         """Handle WebSocket connection from a node"""
         node_id = None
         try:
@@ -215,12 +273,27 @@ class CentralProcessor:
                     elif msg_type == 'signal_detection':
                         # Process signal detection
                         detection_data = data['data']
+                        
+                        # Convert buoy_id to node_id for compatibility
+                        if 'buoy_id' in detection_data:
+                            detection_data['node_id'] = detection_data.pop('buoy_id')
+                        
+                        # Add default bandwidth if missing
+                        if 'bandwidth_hz' not in detection_data:
+                            detection_data['bandwidth_hz'] = 10000
+                        
+                        # Remove fields that LiveSignalDetection doesn't expect
+                        unwanted_fields = ['iq_sample_file', 'correlation_id']
+                        for field in unwanted_fields:
+                            detection_data.pop(field, None)
+                        
                         detection = LiveSignalDetection(**detection_data)
                         
-                        # Update node last seen
+                        # Update node last seen and latest signal timestamp
                         if detection.node_id in self.nodes:
                             self.nodes[detection.node_id].last_seen = datetime.now(timezone.utc)
-                        
+                            self.nodes[detection.node_id].latest_signal_timestamp = datetime.fromisoformat(detection.timestamp_utc.replace('Z', '+00:00'))
+
                         # Add to signal buffer
                         self.signal_buffer.append(detection)
                         
@@ -257,46 +330,40 @@ class CentralProcessor:
     
     async def process_signal_correlations(self):
         """Process signal buffer to find correlations and triangulate"""
-        if len(self.signal_buffer) < 3:
-            return  # Need at least 3 detections for triangulation
+        # This function is for real-time triangulation and should not modify the main buffer.
+        now_ts = datetime.now(timezone.utc).timestamp()
         
-        # Group signals by frequency and time window
-        now = time.time()
-        
-        # Find correlated signals (same frequency, within time window)
-        frequency_groups = {}
-        
-        for detection in self.signal_buffer:
-            # Parse timestamp
-            detection_time = datetime.fromisoformat(detection.timestamp_utc.replace('Z', '+00:00')).timestamp()
-            
-            # Skip old detections
-            if now - detection_time > self.correlation_window_seconds:
+        # Get a snapshot of recent signals for correlation
+        correlation_candidates = []
+        for det in reversed(self.signal_buffer):
+            try:
+                det_ts = datetime.fromisoformat(det.timestamp_utc.replace('Z', '+00:00')).timestamp()
+                if now_ts - det_ts > self.correlation_window_seconds:
+                    # Since the buffer is sorted by time, we can stop early.
+                    break
+                correlation_candidates.append(det)
+            except (ValueError, TypeError):
                 continue
-            
+        
+        if len(correlation_candidates) < 3:
+            return
+
+        # Group signals by frequency and time window
+        frequency_groups = {}
+        for detection in correlation_candidates:
             # Group by frequency (±10 kHz tolerance)
-            freq_key = round(detection.frequency_mhz, 2)  # 10 kHz resolution
-            
+            freq_key = round(detection.frequency_mhz, 2)
             if freq_key not in frequency_groups:
                 frequency_groups[freq_key] = []
-            
             frequency_groups[freq_key].append(detection)
         
         # Process each frequency group for triangulation
         for freq_mhz, detections in frequency_groups.items():
-            if len(detections) >= 3:  # Need 3+ nodes for triangulation
-                # Check that detections are from different nodes
+            if len(detections) >= 3:
                 node_ids = set(d.node_id for d in detections)
                 if len(node_ids) >= 3:
                     await self.triangulate_signal(detections)
-        
-        # Clean old detections from buffer
-        cutoff_time = now - self.correlation_window_seconds
-        self.signal_buffer = [
-            d for d in self.signal_buffer 
-            if datetime.fromisoformat(d.timestamp_utc.replace('Z', '+00:00')).timestamp() > cutoff_time
-        ]
-    
+
     async def triangulate_signal(self, detections: List[LiveSignalDetection]):
         """Triangulate signal from multiple node detections"""
         try:
@@ -355,7 +422,41 @@ class CentralProcessor:
             
         except Exception as e:
             logger.error(f"Error in triangulation: {e}")
-    
+            
+    def _periodic_buffer_cleanup(self):
+        """Periodically clean up old signals from the buffer."""
+        while self.running:
+            time.sleep(self.buffer_cleanup_interval_seconds)
+            
+            if not self.signal_buffer:
+                continue
+
+            cutoff_time = datetime.now(timezone.utc) - timedelta(seconds=self.buffer_max_age_seconds)
+            
+            initial_size = len(self.signal_buffer)
+            
+            # Since new signals are appended, we can find the first valid index
+            first_valid_index = -1
+            for i, detection in enumerate(self.signal_buffer):
+                try:
+                    detection_time = datetime.fromisoformat(detection.timestamp_utc.replace('Z', '+00:00'))
+                    if detection_time >= cutoff_time:
+                        first_valid_index = i
+                        break
+                except (ValueError, TypeError):
+                    # Invalid format, keep for now, might be recent with bad format
+                    continue
+
+            if first_valid_index > 0:
+                self.signal_buffer = self.signal_buffer[first_valid_index:]
+                final_size = len(self.signal_buffer)
+                logger.info(f"Cleaned up {initial_size - final_size} old signals from buffer.")
+            elif first_valid_index == -1 and len(self.signal_buffer) > 0:
+                # All signals are old
+                self.signal_buffer = []
+                logger.info(f"Cleaned up all {initial_size} old signals from buffer.")
+
+
     def start_flask_server(self):
         """Start Flask web server in background thread"""
         def run_flask():
@@ -389,6 +490,11 @@ class CentralProcessor:
         
         # Start WebSocket server
         self.running = True
+        
+        # Start periodic cleanup task
+        cleanup_thread = threading.Thread(target=self._periodic_buffer_cleanup, daemon=True)
+        cleanup_thread.start()
+        
         try:
             asyncio.run(self.start_websocket_server())
         except KeyboardInterrupt:

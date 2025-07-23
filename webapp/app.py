@@ -1,5 +1,5 @@
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import yaml
 import os
 from datetime import datetime, timedelta
@@ -7,6 +7,8 @@ import sys
 import serial
 import time
 import re
+import requests
+import json
 
 # Add the parent directory to the path so we can import the config manager
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -17,6 +19,22 @@ app = Flask(__name__)
 # Load configuration using the actual config manager
 config_manager = ConfigManager()
 config = config_manager.config
+
+# Central Processor API configuration
+CENTRAL_PROCESSOR_HOST = os.getenv('CENTRAL_HOST', 'central-processor')
+CENTRAL_PROCESSOR_PORT = os.getenv('CENTRAL_PORT', '5001')
+CENTRAL_PROCESSOR_URL = f"http://{CENTRAL_PROCESSOR_HOST}:{CENTRAL_PROCESSOR_PORT}"
+
+def get_central_processor_data(endpoint, default=None):
+    """Get data from central processor API with fallback"""
+    try:
+        url = f"{CENTRAL_PROCESSOR_URL}/api/{endpoint}"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f"Failed to connect to central processor: {e}")
+    return default or []
 
 # Cache for hardware detection to prevent inconsistent results
 _hardware_cache = {
@@ -167,16 +185,48 @@ def index():
 
 @app.route('/api/devices')
 def get_devices():
-    # Check if we're in development mode
+    # First try to get real buoy data from central processor
+    try:
+        buoy_data = get_central_processor_data('nodes')
+        if buoy_data and isinstance(buoy_data, list):
+            # Convert central processor node data to device format
+            devices = []
+            for node_info in buoy_data:
+                # Parse timestamp for better formatting
+                last_seen = node_info.get('lastSeen', datetime.now().isoformat())
+                try:
+                    # Convert to more readable format
+                    parsed_time = datetime.fromisoformat(last_seen.replace('Z', '+00:00'))
+                    formatted_time = parsed_time.strftime('%Y-%m-%d %H:%M:%S UTC')
+                except:
+                    formatted_time = last_seen
+                
+                devices.append({
+                    'id': node_info.get('id'),
+                    'name': node_info.get('name', node_info.get('id')),
+                    'lat': node_info.get('lat', 35.4676),
+                    'lng': node_info.get('lng', -97.5164),
+                    'status': node_info.get('status', 'active'),
+                    'lastSeen': last_seen,
+                    'lastSeenFormatted': formatted_time,
+                    'hardware': 'RTL-SDR v3',  # Add hardware info
+                    'location_source': 'gps_locked',  # Add location source
+                    'capabilities': ['fm_scanner', 'emergency_scanner'],
+                    'signal_count': 0  # Will be updated by frontend
+                })
+            return jsonify(devices)
+    except Exception as e:
+        print(f"Failed to get buoy data from central processor: {e}")
+    
+    # Fallback to development mode or local detection
     dev_mode = config_manager.is_development_mode()
     
     if dev_mode:
         # Return mock devices for development
         devices = [
-            {'id': 1, 'name': 'OKC North', 'lat': 35.5200, 'lng': -97.5164, 'status': 'active', 'lastSeen': datetime.now().isoformat()},
-            {'id': 2, 'name': 'OKC East', 'lat': 35.4676, 'lng': -97.4200, 'status': 'active', 'lastSeen': datetime.now().isoformat()},
-            {'id': 3, 'name': 'OKC South', 'lat': 35.4100, 'lng': -97.5164, 'status': 'active', 'lastSeen': datetime.now().isoformat()},
-            {'id': 4, 'name': 'OKC West', 'lat': 35.4676, 'lng': -97.6200, 'status': 'active', 'lastSeen': datetime.now().isoformat()}
+            {'id': 'OKC_BUOY_1', 'name': 'OKC North', 'lat': 35.5200, 'lng': -97.5164, 'status': 'active', 'lastSeen': datetime.now().isoformat()},
+            {'id': 'OKC_BUOY_2', 'name': 'OKC East', 'lat': 35.4676, 'lng': -97.4200, 'status': 'active', 'lastSeen': datetime.now().isoformat()},
+            {'id': 'OKC_BUOY_3', 'name': 'OKC South', 'lat': 35.4100, 'lng': -97.5164, 'status': 'active', 'lastSeen': datetime.now().isoformat()},
         ]
     else:
         # Try to detect real hardware (with caching)
@@ -213,7 +263,32 @@ def get_devices():
 
 @app.route('/api/signals')
 def get_signals():
-    # Check if we're in development mode
+    # First try to get real signal data from central processor
+    try:
+        # Get individual detections (more useful than triangulated signals)
+        signal_data = get_central_processor_data('detections')
+        
+        if signal_data:
+            # Convert central processor signal data to web format
+            signals = []
+            for signal in signal_data:
+                signals.append({
+                    'id': signal.get('id'),
+                    'frequency': signal.get('frequency_mhz', 0),
+                    'signal_strength': signal.get('signal_strength_dbm', -100),
+                    'lat': signal.get('lat', 35.4676),
+                    'lng': signal.get('lng', -97.5164),
+                    'detected_by': [signal.get('node_id', 'unknown')],
+                    'timestamp': signal.get('timestamp', datetime.now().isoformat()),
+                    'signal_type': signal.get('signal_type', 'Unknown'),
+                    'confidence': signal.get('confidence', 0),
+                    'triangulated': signal.get('triangulated', False)
+                })
+            return jsonify(signals)
+    except Exception as e:
+        print(f"Failed to get signal data from central processor: {e}")
+    
+    # Fallback to development mode
     dev_mode = config_manager.is_development_mode()
     
     if dev_mode:
@@ -221,41 +296,87 @@ def get_signals():
         signals = [
             {
                 'id': 1,
-                'frequency': 144.5,  # MHz
-                'signal_strength': -65,  # dBm
-                'lat': 51.507,
-                'lng': -0.095,
-                'detected_by': [1, 2, 3],  # device IDs that detected this signal
+                'frequency': 105.7,  # NPR MHz
+                'signal_strength': -45,  # dBm
+                'lat': 35.4676,
+                'lng': -97.5164,
+                'detected_by': ['OKC_BUOY_1', 'OKC_BUOY_2', 'OKC_BUOY_3'],
                 'timestamp': datetime.now().isoformat(),
                 'signal_type': 'FM'
             },
             {
                 'id': 2,
-                'frequency': 433.92,  # MHz
+                'frequency': 121.5,  # Emergency MHz
                 'signal_strength': -72,  # dBm
-                'lat': 51.502,
-                'lng': -0.105,
-                'detected_by': [1, 3],
+                'lat': 35.5200,
+                'lng': -97.4200,
+                'detected_by': ['OKC_BUOY_1', 'OKC_BUOY_3'],
                 'timestamp': datetime.now().isoformat(),
-                'signal_type': 'Digital'
-            },
-            {
-                'id': 3,
-                'frequency': 868.3,  # MHz
-                'signal_strength': -58,  # dBm
-                'lat': 51.513,
-                'lng': -0.088,
-                'detected_by': [2, 3],
-                'timestamp': datetime.now().isoformat(),
-                'signal_type': 'LoRa'
+                'signal_type': 'Emergency'
             }
         ]
     else:
-        # In production, this would return real signal data
-        # For now, return empty list (no signals detected yet)
+        # In production, return empty list if no central processor data
         signals = []
     
     return jsonify(signals)
+
+@app.route('/api/search-signals')
+def search_signals():
+    """Search for signals by frequency, type, or other criteria"""
+    frequency = request.args.get('frequency')
+    signal_type = request.args.get('type')
+    max_results = int(request.args.get('max_results', 50))
+    
+    try:
+        # Get all detections
+        signal_data = get_central_processor_data('detections')
+        
+        if not signal_data:
+            return jsonify([])
+        
+        # Filter signals based on search criteria
+        filtered_signals = []
+        for signal in signal_data:
+            match = True
+            
+            # Frequency filter (allow some tolerance)
+            if frequency:
+                try:
+                    target_freq = float(frequency)
+                    signal_freq = signal.get('frequency_mhz', 0)
+                    freq_diff = abs(signal_freq - target_freq)
+                    
+                    # Allow 0.1 MHz tolerance
+                    if freq_diff > 0.1:
+                        match = False
+                except ValueError:
+                    match = False
+            
+            # Signal type filter
+            if signal_type and signal_type.lower() != 'all':
+                if signal.get('signal_type', '').lower() != signal_type.lower():
+                    match = False
+            
+            if match:
+                filtered_signals.append({
+                    'id': signal.get('id'),
+                    'frequency': signal.get('frequency_mhz', 0),
+                    'signal_strength': signal.get('signal_strength_dbm', -100),
+                    'lat': signal.get('lat', 35.4676),
+                    'lng': signal.get('lng', -97.5164),
+                    'detected_by': [signal.get('node_id', 'unknown')],
+                    'timestamp': signal.get('timestamp', datetime.now().isoformat()),
+                    'signal_type': signal.get('signal_type', 'Unknown'),
+                    'confidence': signal.get('confidence', 0)
+                })
+        
+        # Limit results
+        return jsonify(filtered_signals[:max_results])
+        
+    except Exception as e:
+        print(f"Error searching signals: {e}")
+        return jsonify([])
 
 @app.route('/api/system-status')
 def get_system_status():
@@ -284,5 +405,32 @@ def get_system_status():
     
     return jsonify(status)
 
+@app.route('/api/nodes')
+def get_nodes():
+    """Proxy route to get nodes from central processor"""
+    try:
+        nodes = get_central_processor_data('nodes')
+        return jsonify(nodes)
+    except Exception as e:
+        return jsonify([]), 500
+
+@app.route('/api/detections')
+def get_detections():
+    """Proxy route to get detections from central processor"""
+    try:
+        detections = get_central_processor_data('detections')
+        return jsonify(detections)
+    except Exception as e:
+        return jsonify([]), 500
+
+@app.route('/api/all-signals')
+def get_all_signals():
+    """Get all detected signals for the signal list modal"""
+    try:
+        signals = get_central_processor_data('detections')
+        return jsonify(signals)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(debug=True, host='0.0.0.0', port=5000) 

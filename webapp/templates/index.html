@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -337,6 +336,117 @@
             border-radius: 4px;
         }
         
+        .stat-item.clickable {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .stat-item.clickable:hover {
+            background-color: #e8f0fe;
+        }
+        
+        /* Modal (for signals and buoys) */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideIn 0.3s;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-50px); }
+            to { transform: translateY(0); }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #dadce0;
+            padding-bottom: 10px;
+        }
+        
+        .modal-close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .modal-close:hover {
+            color: #000;
+        }
+        
+        .list-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .list-table th,
+        .list-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #dadce0;
+        }
+        
+        .list-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #202124;
+        }
+        
+        .signal-frequency {
+            font-weight: 600;
+            color: #1a73e8;
+        }
+        
+        .signal-strength {
+            font-family: monospace;
+        }
+        
+        .signal-type {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .signal-type.emergency {
+            background-color: #fce8e6;
+            color: #d93025;
+        }
+        
+        .signal-type.testing {
+            background-color: #e8f0fe;
+            color: #1a73e8;
+        }
+        
         .stat-value {
             font-size: 24px;
             font-weight: 700;
@@ -501,11 +611,11 @@
                 </div>
                 <div class="panel-content">
                     <div class="stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-value" id="buoyCount">4</span>
+                        <div class="stat-item clickable" id="buoyCountBox" onclick="showBuoyList()">
+                            <span class="stat-value" id="buoyCount">1</span>
                             <span class="stat-label">Active Buoys</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item clickable" id="signalCountBox" onclick="showSignalList()">
                             <span class="stat-value" id="signalCount">4</span>
                             <span class="stat-label">Signals Detected</span>
                         </div>
@@ -519,6 +629,28 @@
 
         <div class="map-container">
             <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Signal List Modal -->
+    <div id="signalModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Detected Signals</h2>
+                <span class="modal-close" onclick="closeModal('signalModal')">&times;</span>
+            </div>
+            <div id="signalListContent"></div>
+        </div>
+    </div>
+
+    <!-- Buoy List Modal -->
+    <div id="buoyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Active Buoys</h2>
+                <span class="modal-close" onclick="closeModal('buoyModal')">&times;</span>
+            </div>
+            <div id="buoyListContent"></div>
         </div>
     </div>
     
@@ -609,46 +741,41 @@
 
         // Store markers for filtering
         var signalMarkers = [];
-        var signalData = [];
+        var buoyMarkers = {};
 
-        // Buoy data - loaded from API
+        // Data stores
         var buoyData = [];
-
-        // Signal data - loaded from API
-        var enhancedSignalData = [];
+        var allDetections = [];
         
+        // Load all data from API
+        function loadData() {
+            loadBuoys();
+            loadDetections();
+        }
+
         // Load signals from API
-        function loadSignals() {
-            console.log('Loading signals from API...');
-            fetch('/api/signals')
-                .then(response => {
-                    console.log('Signals API response status:', response.status);
-                    return response.json();
-                })
-                .then(signals => {
-                    console.log('Signals loaded:', signals);
-                    enhancedSignalData = signals;
-                    displaySignals(signals);
+        function loadDetections() {
+            fetch('/api/detections')
+                .then(response => response.json())
+                .then(detections => {
+                    allDetections = detections;
+                    updateSignalCount();
+                    displaySignalsOnMap(getLatestDetections());
                     checkEmergencySignals();
                 })
                 .catch(error => {
-                    console.error('Error loading signals:', error);
-                    displaySignals([]); // Show no signals on error
+                    console.error('Error loading detections:', error);
                 });
         }
 
         // Load and display buoys from API
         function loadBuoys() {
-            console.log('Loading buoys from API...');
-            fetch('/api/devices')
-                .then(response => {
-                    console.log('Buoys API response status:', response.status);
-                    return response.json();
-                })
-                .then(devices => {
-                    console.log('Buoys loaded:', devices);
-                    buoyData = devices;
+            fetch('/api/nodes')
+                .then(response => response.json())
+                .then(nodes => {
+                    buoyData = nodes;
                     displayBuoys();
+                    updateBuoyCount();
                 })
                 .catch(error => {
                     console.error('Error loading buoys:', error);
@@ -656,88 +783,99 @@
         }
 
         function displayBuoys() {
-            console.log('Displaying buoys:', buoyData);
-            
             buoyData.forEach(buoy => {
-                // Determine status display based on location source
-                let locationInfo = '';
-                if (buoy.location_source === 'gps_locked') {
-                    locationInfo = '<br><strong>📍 GPS:</strong> <span style="color: #34a853;">Active Fix</span>';
-                } else if (buoy.location_source === 'fallback') {
-                    locationInfo = '<br><strong>📍 GPS:</strong> <span style="color: #fbbc04;">Using Fallback Location</span>';
-                } else if (buoy.location_source === 'no_gps') {
-                    locationInfo = '<br><strong>📍 GPS:</strong> <span style="color: #ea4335;">No GPS Available</span>';
-                }
+                const existingMarker = buoyMarkers[buoy.id];
                 
-                var popupContent = `
+                const popupContent = `
                     <div style="font-family: Roboto, sans-serif;">
                         <h4 style="margin: 0 0 8px 0; color: #202124;">${buoy.name}</h4>
                         <p style="margin: 4px 0; font-size: 13px; color: #5f6368;">
-                            <strong>Status:</strong> ${buoy.status.toUpperCase()}<br>
                             <strong>ID:</strong> ${buoy.id}<br>
-                            <strong>Last Seen:</strong> ${new Date(buoy.lastSeen).toLocaleString()}
-                            ${buoy.hardware ? `<br><strong>Hardware:</strong> ${buoy.hardware}` : ''}
-                            ${locationInfo}
+                            <strong>Status:</strong> <span style="color: ${buoy.status === 'active' ? '#34a853' : '#ea4335'}; font-weight: 500;">${buoy.status.toUpperCase()}</span><br>
+                            <strong>Last Heard:</strong> ${getTimeAgo(new Date(buoy.lastSeen))}<br>
+                            <strong>Latest Signal:</strong> ${buoy.latest_signal_timestamp ? getTimeAgo(new Date(buoy.latest_signal_timestamp)) : 'N/A'}
                         </p>
                     </div>
                 `;
-                L.marker([buoy.lat, buoy.lng], {icon: buoyIcon}).addTo(map)
-                    .bindPopup(popupContent);
+
+                if (existingMarker) {
+                    existingMarker.setLatLng([buoy.lat, buoy.lng]);
+                    existingMarker.getPopup().setContent(popupContent);
+                } else {
+                    const marker = L.marker([buoy.lat, buoy.lng], {icon: buoyIcon})
+                        .addTo(map)
+                        .bindPopup(popupContent);
+                    buoyMarkers[buoy.id] = marker;
+                }
             });
-            
-            // Update buoy count
+        }
+
+        function updateBuoyCount() {
             const activeBuoys = buoyData.filter(b => b.status === 'active').length;
-            console.log('Active buoys count:', activeBuoys);
             document.getElementById('buoyCount').textContent = activeBuoys;
         }
 
-        function displaySignals(signals) {
+        function updateSignalCount() {
+            document.getElementById('signalCount').textContent = allDetections.length;
+        }
+
+        function getLatestDetections(max = 50) {
+            // Return the most recent 'max' detections
+            return allDetections.slice(0, max);
+        }
+
+        function displaySignalsOnMap(signals) {
             // Clear existing markers
             signalMarkers.forEach(marker => map.removeLayer(marker));
             signalMarkers = [];
 
             // Add new markers
             signals.forEach(signal => {
-                var icon = signal.signal_type === 'emergency' ? emergencyIcon : commercialIcon;
-                var confidenceText = signal.triangulated ? `Triangulated (${(signal.confidence * 100).toFixed(0)}% confidence)` : 'Single detection';
+                const icon = getSignalIcon(signal.signal_type);
+                const confidenceText = signal.confidence ? `Confidence: ${(signal.confidence * 100).toFixed(0)}%` : 'Single detection';
                 
-                var popupContent = `
+                const popupContent = `
                     <div style="font-family: Roboto, sans-serif;">
                         <h4 style="margin: 0 0 8px 0; color: ${signal.signal_type === 'emergency' ? '#ea4335' : '#202124'};">
-                            ${signal.classification}
+                            Signal at ${signal.frequency_mhz.toFixed(3)} MHz
                         </h4>
                         <p style="margin: 4px 0; font-size: 13px; color: #5f6368;">
-                            <strong>Frequency:</strong> ${signal.frequency} MHz<br>
-                            <strong>Signal Strength:</strong> ${signal.signal_strength} dBm<br>
+                            <strong>Strength:</strong> ${signal.signal_strength_dbm.toFixed(1)} dBm<br>
                             <strong>Type:</strong> ${signal.signal_type}<br>
-                            <strong>Detected by:</strong> Buoy ${signal.detected_by.join(', ')}<br>
-                            <strong>Status:</strong> ${confidenceText}<br>
-                            <strong>Time:</strong> ${new Date(signal.timestamp).toLocaleString()}
+                            <strong>Detected by:</strong> ${signal.node_id}<br>
+                            <strong>Time:</strong> ${getTimeAgo(new Date(signal.timestamp))}<br>
+                            ${confidenceText}
                         </p>
                     </div>
                 `;
                 
-                var marker = L.marker([signal.lat, signal.lng], {icon: icon}).addTo(map)
+                const marker = L.marker([signal.lat, signal.lng], {icon: icon})
+                    .addTo(map)
                     .bindPopup(popupContent);
                 signalMarkers.push(marker);
             });
-
-            // Update signal count
-            document.getElementById('signalCount').textContent = signals.length;
+        }
+        
+        function getSignalIcon(signalType) {
+            if (signalType === 'emergency') {
+                return emergencyIcon;
+            }
+            // Add other types as needed
+            return commercialIcon;
         }
 
         function applyFilters() {
-            var minFreq = parseFloat(document.getElementById('minFreq').value) || 0;
-            var maxFreq = parseFloat(document.getElementById('maxFreq').value) || 1000;
-            var signalType = document.getElementById('signalType').value;
+            const minFreq = parseFloat(document.getElementById('minFreq').value) || 0;
+            const maxFreq = parseFloat(document.getElementById('maxFreq').value) || 9999;
+            const signalType = document.getElementById('signalType').value;
 
-            var filteredSignals = enhancedSignalData.filter(signal => {
-                var freqMatch = signal.frequency >= minFreq && signal.frequency <= maxFreq;
-                var typeMatch = signalType === 'all' || signal.signal_type === signalType;
+            const filteredDetections = allDetections.filter(detection => {
+                const freqMatch = detection.frequency_mhz >= minFreq && detection.frequency_mhz <= maxFreq;
+                const typeMatch = signalType === 'all' || detection.signal_type === signalType;
                 return freqMatch && typeMatch;
             });
 
-            displaySignals(filteredSignals);
+            displaySignalsOnMap(getLatestDetections(filteredDetections));
         }
 
         function updateTimestamp() {
@@ -745,13 +883,13 @@
         }
 
         function checkEmergencySignals() {
-            var emergencySignals = enhancedSignalData.filter(s => s.signal_type === 'emergency');
-            var alert = document.getElementById('emergencyAlert');
+            const emergencySignals = allDetections.filter(s => s.signal_type === 'emergency');
+            const alert = document.getElementById('emergencyAlert');
             
             if (emergencySignals.length > 0) {
-                var alertText = document.getElementById('alertText');
-                var latest = emergencySignals[emergencySignals.length - 1];
-                alertText.textContent = `Signal detected at ${latest.frequency} MHz - ${latest.classification}`;
+                const alertText = document.getElementById('alertText');
+                const latest = emergencySignals[0]; // Already sorted by newest
+                alertText.textContent = `Emergency signal at ${latest.frequency_mhz.toFixed(3)} MHz detected!`;
                 alert.classList.add('active');
             } else {
                 alert.classList.remove('active');
@@ -788,12 +926,12 @@
         }
         
         function performSignalSearch(request) {
-            var resultsContent = document.getElementById('searchResultsContent');
-            var frequency = request.frequency_mhz;
+            const resultsContent = document.getElementById('searchResultsContent');
+            const frequency = request.frequency_mhz;
             
             // Search through historical signal data
-            var matches = enhancedSignalData.filter(signal => {
-                return Math.abs(signal.frequency - frequency) < 0.01; // ±10 kHz tolerance
+            const matches = allDetections.filter(signal => {
+                return Math.abs(signal.frequency_mhz - frequency) < 0.01; // ±10 kHz tolerance
             });
             
             if (matches.length > 0) {
@@ -806,9 +944,9 @@
                     resultHtml += `
                         <div style="font-size: 12px; margin: 4px 0; padding: 8px; background: white; border-radius: 4px;">
                             <strong>Location:</strong> ${match.lat.toFixed(4)}, ${match.lng.toFixed(4)}<br>
-                            <strong>Signal:</strong> ${match.signal_strength} dBm<br>
-                            <strong>Detected by:</strong> Buoy ${match.detected_by.join(', ')}<br>
-                            <strong>Age:</strong> ${age} minutes ago<br>
+                            <strong>Strength:</strong> ${match.signal_strength_dbm.toFixed(1)} dBm<br>
+                            <strong>Detected by:</strong> ${match.node_id}<br>
+                            <strong>Age:</strong> ${getTimeAgo(new Date(match.timestamp))}<br>
                             <strong>Confidence:</strong> ${(match.confidence * 100).toFixed(0)}%
                         </div>
                     `;
@@ -832,9 +970,9 @@
                                 </h4>
                                 <p style="margin: 4px 0; font-size: 13px; color: #5f6368;">
                                     <strong>Description:</strong> ${request.description || 'User requested signal'}<br>
-                                    <strong>Signal Strength:</strong> ${match.signal_strength} dBm<br>
+                                    <strong>Signal Strength:</strong> ${match.signal_strength_dbm.toFixed(1)} dBm<br>
                                     <strong>Classification:</strong> ${match.classification}<br>
-                                    <strong>Detected by:</strong> Buoy ${match.detected_by.join(', ')}<br>
+                                    <strong>Detected by:</strong> Buoy ${match.node_id}<br>
                                     <strong>Triangulated Location</strong>
                                 </p>
                             </div>
@@ -862,13 +1000,12 @@
         }
 
         // Initialize
-        loadBuoys();
-        loadSignals();
+        loadData();
         updateTimestamp();
         checkDevMode();
         
-        // Update timestamp every 30 seconds
-        setInterval(updateTimestamp, 30000);
+        // Update data every 5 seconds
+        setInterval(loadData, 5000);
 
         // Event listeners
         document.getElementById('applyFilters').addEventListener('click', applyFilters);
@@ -879,7 +1016,96 @@
         setTimeout(() => {
             document.getElementById('emergencyAlert').classList.remove('active');
         }, 10000);
+
+        // Modal Functions
+        function showModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function showSignalList() {
+            const content = document.getElementById('signalListContent');
+            
+            if (!allDetections || allDetections.length === 0) {
+                content.innerHTML = '<p>No signals detected recently.</p>';
+                showModal('signalModal');
+                return;
+            }
+            
+            let html = '<table class="list-table">';
+            html += '<thead><tr><th>Frequency</th><th>Strength</th><th>Type</th><th>Buoy ID</th><th>Time</th></tr></thead>';
+            html += '<tbody>';
+            
+            getLatestDetections(100).forEach(signal => {
+                html += '<tr>';
+                html += `<td><span class="signal-frequency">${signal.frequency_mhz.toFixed(3)} MHz</span></td>`;
+                html += `<td><span class="signal-strength">${signal.signal_strength_dbm.toFixed(1)} dBm</span></td>`;
+                html += `<td><span class="signal-type ${signal.signal_type.toLowerCase()}">${signal.signal_type}</span></td>`;
+                html += `<td>${signal.node_id}</td>`;
+                html += `<td>${getTimeAgo(new Date(signal.timestamp))}</td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            content.innerHTML = html;
+            showModal('signalModal');
+        }
+
+        function showBuoyList() {
+            const content = document.getElementById('buoyListContent');
+            
+            if (!buoyData || buoyData.length === 0) {
+                content.innerHTML = '<p>No active buoys.</p>';
+                showModal('buoyModal');
+                return;
+            }
+            
+            let html = '<table class="list-table">';
+            html += '<thead><tr><th>ID</th><th>Status</th><th>Location</th><th>Last Heard</th><th>Latest Signal</th></tr></thead>';
+            html += '<tbody>';
+            
+            buoyData.forEach(buoy => {
+                html += '<tr>';
+                html += `<td>${buoy.id}</td>`;
+                html += `<td><span style="color: ${buoy.status === 'active' ? '#34a853' : '#ea4335'}; font-weight: 500;">${buoy.status.toUpperCase()}</span></td>`;
+                html += `<td>${buoy.lat.toFixed(4)}, ${buoy.lng.toFixed(4)}</td>`;
+                html += `<td>${getTimeAgo(new Date(buoy.lastSeen))}</td>`;
+                html += `<td>${buoy.latest_signal_timestamp ? getTimeAgo(new Date(buoy.latest_signal_timestamp)) : 'N/A'}</td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            content.innerHTML = html;
+            showModal('buoyModal');
+        }
+        
+        function getTimeAgo(date) {
+            if (!date || isNaN(date)) return 'Invalid Date';
+            const now = new Date();
+            const diff = now - date;
+            const seconds = Math.floor(diff / 1000);
+            
+            if (seconds < 2) return "just now";
+            if (seconds < 60) return `${seconds}s ago`;
+            
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+
+            return date.toLocaleDateString();
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                closeModal(event.target.id);
+            }
+        }
     </script>
 </body>
-</html>
-
+</html> 

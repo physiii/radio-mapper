@@ -1,0 +1,150 @@
+version: '3.8'
+
+services:
+  # Central processing server
+  central-processor:
+    build: .
+    container_name: radio-mapper-central
+    ports:
+      - "5001:5001"  # HTTP API
+      - "8081:8081"  # WebSocket server
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONPATH=/app
+    devices:
+      - /dev/bus/usb:/dev/bus/usb  # Access to USB devices (RTL-SDR)
+    privileged: true  # Required for USB device access
+    command: ["python3", "central_processor.py", "0.0.0.0", "8081", "5001"]
+    restart: unless-stopped
+    networks:
+      - radio-mapper-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Web interface
+  webapp:
+    build: .
+    container_name: radio-mapper-web
+    ports:
+      - "5000:5000"  # Web interface
+    volumes:
+      - ./webapp:/app/webapp
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - central-processor
+    command: ["python3", "webapp/app.py"]
+    restart: unless-stopped
+    networks:
+      - radio-mapper-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Buoy node 1 (for testing)
+  buoy-1:
+    build: .
+    container_name: radio-mapper-buoy-1
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONPATH=/app
+      - BUOY_ID=OKC_BUOY_1
+      - CENTRAL_HOST=central-processor
+    devices:
+      - /dev/bus/usb:/dev/bus/usb  # Access to USB devices (RTL-SDR)
+    privileged: true  # Required for USB device access
+    depends_on:
+      - central-processor
+    command: ["python3", "buoy_node.py"]
+    restart: unless-stopped
+    networks:
+      - radio-mapper-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
+  # Buoy node 2 (for testing)
+  buoy-2:
+    build: .
+    container_name: radio-mapper-buoy-2
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONPATH=/app
+      - BUOY_ID=OKC_BUOY_2
+      - CENTRAL_HOST=central-processor
+    devices:
+      - /dev/bus/usb:/dev/bus/usb  # Access to USB devices (RTL-SDR)
+    privileged: true  # Required for USB device access
+    depends_on:
+      - central-processor
+    command: ["python3", "buoy_node.py"]
+    restart: unless-stopped
+    networks:
+      - radio-mapper-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
+  # Buoy node 3 (for testing)
+  buoy-3:
+    build: .
+    container_name: radio-mapper-buoy-3
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONPATH=/app
+      - BUOY_ID=OKC_BUOY_3
+      - CENTRAL_HOST=central-processor
+    devices:
+      - /dev/bus/usb:/dev/bus/usb  # Access to USB devices (RTL-SDR)
+    privileged: true  # Required for USB device access
+    depends_on:
+      - central-processor
+    command: ["python3", "buoy_node.py"]
+    restart: unless-stopped
+    networks:
+      - radio-mapper-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
+networks:
+  radio-mapper-network:
+    driver: bridge
+
+volumes:
+  data: 

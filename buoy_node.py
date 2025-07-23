@@ -16,11 +16,14 @@ import socket
 import threading
 import subprocess
 import numpy as np
+import asyncio
+import websockets
 from datetime import datetime, timezone
 from dataclasses import dataclass, asdict
 from typing import List, Optional, Tuple
 import queue
 import logging
+import uuid
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -53,6 +56,7 @@ class BuoyStatus:
     last_heartbeat: str
     signals_detected: int
     uptime_seconds: int
+    latest_signal_timestamp: Optional[str] = None
 
 class GPSTimeSource:
     """Manages GPS-disciplined timing for precision TDoA"""
@@ -116,14 +120,17 @@ class SignalDetector:
         self.gps_source = gps_source
         self.monitoring = False
         self.detection_threshold_dbm = -70  # Signal detection threshold
-        self.frequency_ranges = [
-            (118.0, 136.0),    # Aviation
-            (144.0, 148.0),    # Amateur 2m
-            (156.0, 162.0),    # Marine VHF
-            (406.0, 406.1),    # Emergency beacons (EPIRB/PLB)
-            (121.5, 121.5),    # Aviation emergency
-            (243.0, 243.0),    # Military emergency
+        self.latest_signal_timestamp: Optional[str] = None
+        
+        # GPS-synchronized frequency scanning schedule (35-second cycle)
+        self.sync_schedule = [
+            {"frequency": 105.7, "duration": 5, "type": "testing"},     # 0-5s: FM Commercial
+            {"frequency": 121.5, "duration": 10, "type": "emergency"},  # 5-15s: Aviation Emergency  
+            {"frequency": 243.0, "duration": 10, "type": "emergency"},  # 15-25s: Military Emergency
+            {"frequency": 156.8, "duration": 5, "type": "emergency"},   # 25-30s: Marine Emergency
+            {"frequency": 101.9, "duration": 5, "type": "testing"},     # 30-35s: FM Commercial
         ]
+        self.total_cycle_time = sum(entry["duration"] for entry in self.sync_schedule)
         self.signal_queue = queue.Queue()
         
     def start_monitoring(self):
@@ -137,29 +144,103 @@ class SignalDetector:
         """Stop signal monitoring"""
         self.monitoring = False
         logger.info("Signal monitoring stopped")
+
+    def get_latest_signal_timestamp(self) -> Optional[str]:
+        """Get the timestamp of the latest signal detection"""
+        return self.latest_signal_timestamp
     
     def _monitor_signals(self):
-        """Main monitoring loop - scans frequency ranges for signals"""
+        """Main monitoring loop - GPS-synchronized frequency cycling"""
         while self.monitoring:
             try:
-                for freq_start, freq_end in self.frequency_ranges:
-                    if not self.monitoring:
-                        break
-                    
-                    # Simulate scanning frequency range
-                    detections = self._scan_frequency_range(freq_start, freq_end)
-                    
-                    for detection in detections:
-                        self.signal_queue.put(detection)
-                        logger.info(f"Signal detected: {detection.frequency_mhz} MHz, "
-                                   f"{detection.signal_strength_dbm} dBm")
+                # Get current frequency based on GPS time sync
+                current_freq, signal_type = self.get_current_sync_frequency()
                 
-                # Brief pause between scan cycles
+                if not self.monitoring:
+                    break
+                
+                # Simulate signal detection for current frequency
+                if self._simulate_signal_detection(current_freq, signal_type):
+                    logger.info(f"Signal detected: {current_freq} MHz, type: {signal_type}")
+                
+                # Brief pause before next detection attempt
                 time.sleep(1.0)
                 
             except Exception as e:
                 logger.error(f"Error in signal monitoring: {e}")
                 time.sleep(5.0)
+                
+    def get_current_sync_frequency(self):
+        """Get the current frequency to scan based on GPS-synchronized schedule"""
+        import time
+        
+        # Get current GPS time (use system time for simulation)
+        gps_seconds = int(time.time())
+        cycle_position = gps_seconds % self.total_cycle_time
+        
+        # Find which frequency should be active now
+        elapsed = 0
+        for entry in self.sync_schedule:
+            if elapsed <= cycle_position < elapsed + entry["duration"]:
+                return entry["frequency"], entry["type"]
+            elapsed += entry["duration"]
+        
+        # Fallback to first frequency
+        return self.sync_schedule[0]["frequency"], self.sync_schedule[0]["type"]
+    
+    def _simulate_signal_detection(self, frequency_mhz: float, signal_type: str) -> bool:
+        """Simulate signal detection for a specific frequency"""
+        import random
+        
+        # Simulate realistic signal detection with some randomness
+        detection_probability = 0.8  # 80% chance of detecting signal per attempt
+        
+        if random.random() < detection_probability:
+            # Generate realistic signal parameters based on frequency type
+            if signal_type == "emergency":
+                base_strength = -75  # Weaker emergency signals
+                variation = 15
+            else:  # testing (FM commercial)
+                base_strength = -45  # Strong FM broadcast signals
+                variation = 10
+            
+            signal_strength = base_strength + random.uniform(-variation, variation/2)
+            confidence = 0.7 + random.uniform(0.0, 0.25)
+            
+            # Get GPS timing and position
+            iso_timestamp, gps_ns = self.gps_source.get_precise_timestamp()
+            lat, lng = self.gps_source.get_position()
+            
+            # Create signal detection
+            detection = SignalDetection(
+                buoy_id=self.buoy_id,
+                frequency_mhz=frequency_mhz,
+                signal_strength_dbm=round(signal_strength, 1),
+                timestamp_utc=iso_timestamp,
+                gps_timestamp_ns=gps_ns,
+                lat=lat,
+                lng=lng,
+                confidence=round(confidence, 2),
+                signal_type=signal_type
+            )
+            
+            # Add to signal queue for processing
+            self.signal_queue.put(detection)
+            
+            logger.info(f"SIMULATED SIGNAL: {frequency_mhz} MHz, {signal_strength:.1f} dBm, "
+                       f"confidence: {confidence:.2f}, type: {signal_type}")
+            
+            # Log emergency signals prominently
+            if signal_type == "emergency":
+                logger.warning(f"EMERGENCY SIGNAL DETECTED: {frequency_mhz} MHz at {iso_timestamp}")
+            
+            # Update latest signal timestamp
+            self.latest_signal_timestamp = iso_timestamp
+            
+            return True
+        else:
+            logger.debug(f"No signal detected on {frequency_mhz} MHz (simulation)")
+            return False
     
     def _scan_frequency_range(self, freq_start: float, freq_end: float) -> List[SignalDetection]:
         """Scan a frequency range and detect signals"""
@@ -228,22 +309,66 @@ class CentralCommunicator:
         self.server_host = central_server_host
         self.server_port = central_server_port
         self.connected = False
+        self.websocket = None
+        self.loop = None
+        self.ws_thread = None
         
     def connect_to_central(self) -> bool:
-        """Establish connection to central server"""
+        """Establish WebSocket connection to central server"""
         try:
-            # In production: implement robust TCP/WebSocket connection
             logger.info(f"Connecting to central server at {self.server_host}:{self.server_port}")
-            self.connected = True
-            return True
+            
+            # Start WebSocket connection in a background thread
+            self.ws_thread = threading.Thread(target=self._run_websocket_client, daemon=True)
+            self.ws_thread.start()
+            
+            # Wait a moment for connection to establish
+            time.sleep(2)
+            
+            return self.connected
         except Exception as e:
             logger.error(f"Failed to connect to central server: {e}")
             return False
+            
+    def _run_websocket_client(self):
+        """Run WebSocket client in background thread"""
+        try:
+            self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
+            self.loop.run_until_complete(self._websocket_client())
+        except Exception as e:
+            logger.error(f"WebSocket client error: {e}")
+            
+    async def _websocket_client(self):
+        """WebSocket client coroutine"""
+        uri = f"ws://{self.server_host}:{self.server_port}"
+        try:
+            async with websockets.connect(uri) as websocket:
+                self.websocket = websocket
+                self.connected = True
+                logger.info(f"Connected to central server via WebSocket")
+                
+                # Send initial registration
+                registration = {
+                    "type": "node_registration",
+                    "node_type": "buoy",
+                    "node_id": self.buoy_id,
+                    "capabilities": ["signal_detection", "iq_capture"],
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                await websocket.send(json.dumps(registration))
+                
+                # Keep connection alive
+                await websocket.wait_closed()
+                
+        except Exception as e:
+            logger.error(f"WebSocket connection failed: {e}")
+            self.connected = False
     
     def send_detection(self, detection: SignalDetection) -> bool:
         """Send signal detection to central server for TDoA processing"""
         try:
-            if not self.connected:
+            if not self.connected or not self.websocket:
                 logger.warning("Not connected to central server")
                 return False
             
@@ -255,9 +380,19 @@ class CentralCommunicator:
                 "timestamp": detection.timestamp_utc
             }
             
-            # In production: send via TCP/WebSocket
-            logger.info(f"Sent detection to central: {detection.frequency_mhz} MHz from {detection.buoy_id}")
-            return True
+            # Send via WebSocket asynchronously
+            if self.loop and self.loop.is_running():
+                future = asyncio.run_coroutine_threadsafe(
+                    self.websocket.send(json.dumps(message)), 
+                    self.loop
+                )
+                future.result(timeout=1.0)  # Wait max 1 second
+                
+                logger.info(f"Sent detection to central: {detection.frequency_mhz} MHz from {detection.buoy_id}")
+                return True
+            else:
+                logger.warning("WebSocket event loop not running")
+                return False
             
         except Exception as e:
             logger.error(f"Failed to send detection: {e}")
@@ -286,7 +421,7 @@ class CentralCommunicator:
 class BuoyNode:
     """Main buoy node class that coordinates all subsystems"""
     
-    def __init__(self, buoy_id: str, central_server_host: str = "localhost"):
+    def __init__(self, buoy_id: str, central_server_host: str = "localhost", central_server_port: int = 8081):
         self.buoy_id = buoy_id
         self.start_time = time.time()
         self.signals_detected_count = 0
@@ -295,7 +430,7 @@ class BuoyNode:
         # Initialize subsystems
         self.gps_source = GPSTimeSource()
         self.signal_detector = SignalDetector(buoy_id, self.gps_source)
-        self.communicator = CentralCommunicator(buoy_id, central_server_host)
+        self.communicator = CentralCommunicator(buoy_id, central_server_host, central_server_port)
         
         logger.info(f"Buoy node {buoy_id} initialized")
     
@@ -377,7 +512,8 @@ class BuoyNode:
                     timing_accuracy_ns=self.gps_source.timing_accuracy_ns,
                     last_heartbeat=datetime.now(timezone.utc).isoformat(),
                     signals_detected=self.signals_detected_count,
-                    uptime_seconds=int(time.time() - self.start_time)
+                    uptime_seconds=int(time.time() - self.start_time),
+                    latest_signal_timestamp=self.signal_detector.get_latest_signal_timestamp()
                 )
                 
                 self.communicator.send_heartbeat(status)
@@ -411,12 +547,17 @@ class BuoyNode:
 def main():
     """Main entry point for buoy node operation"""
     import sys
+    import os
     
-    # Get buoy ID from command line or default
-    buoy_id = sys.argv[1] if len(sys.argv) > 1 else "BUOY_ALPHA"
+    # Get configuration from environment variables or defaults
+    buoy_id = os.getenv('BUOY_ID', str(uuid.uuid4()))
+    central_host = os.getenv('CENTRAL_HOST', 'localhost')
+    central_port = int(os.getenv('CENTRAL_PORT', '8080'))
+    
+    logger.info(f"Connecting to central server at {central_host}:{central_port}")
     
     # Create and start buoy node
-    buoy = BuoyNode(buoy_id)
+    buoy = BuoyNode(buoy_id, central_host, central_port)
     
     try:
         if buoy.startup():
