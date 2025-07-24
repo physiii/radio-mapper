@@ -23,7 +23,7 @@ services:
     build: .
     container_name: radio-mapper-webapp
     ports:
-      - "6000:6000"  # Web interface
+      - "4001:6000"  # Web interface
     volumes:
       - ./webapp:/app/webapp
       - ./config.yaml:/app/config.yaml:ro
