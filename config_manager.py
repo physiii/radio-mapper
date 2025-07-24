@@ -9,11 +9,51 @@ from config.yaml file with fallback defaults.
 import yaml
 import os
 import logging
+import re
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 import socket
 
 logger = logging.getLogger(__name__)
+
+def expand_env_vars(text: str) -> str:
+    """Expand environment variables in text using ${VAR:-default} syntax"""
+    if not isinstance(text, str):
+        return text
+    
+    # Pattern to match ${VAR:-default} or ${VAR}
+    pattern = r'\$\{([^}]+)\}'
+    
+    def replace_var(match):
+        var_expr = match.group(1)
+        if ':-' in var_expr:
+            var_name, default = var_expr.split(':-', 1)
+            return os.getenv(var_name.strip(), default.strip())
+        else:
+            return os.getenv(var_expr.strip(), match.group(0))
+    
+    return re.sub(pattern, replace_var, text)
+
+def expand_env_vars_recursive(obj):
+    """Recursively expand environment variables in a nested dict/list structure"""
+    if isinstance(obj, dict):
+        return {key: expand_env_vars_recursive(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [expand_env_vars_recursive(item) for item in obj]
+    elif isinstance(obj, str):
+        expanded = expand_env_vars(obj)
+        # Try to convert to int if it looks like a number
+        if expanded.isdigit():
+            return int(expanded)
+        # Try to convert to float if it looks like a decimal
+        try:
+            if '.' in expanded:
+                return float(expanded)
+        except ValueError:
+            pass
+        return expanded
+    else:
+        return obj
 
 @dataclass
 class BuoyConfig:
@@ -76,7 +116,7 @@ class ConfigManager:
         
         if not os.path.exists(self.config_file):
             logger.warning(f"Config file {self.config_file} not found, using defaults")
-            return default_config
+            return expand_env_vars_recursive(default_config)
             
         try:
             with open(self.config_file, 'r') as f:
@@ -84,13 +124,17 @@ class ConfigManager:
                 
             # Merge user config with defaults
             merged_config = self._deep_merge(default_config, user_config)
+            
+            # Expand environment variables
+            merged_config = expand_env_vars_recursive(merged_config)
+            
             logger.info(f"Loaded configuration from {self.config_file}")
             return merged_config
             
         except Exception as e:
             logger.error(f"Error loading config file: {e}")
             logger.warning("Using default configuration")
-            return default_config
+            return expand_env_vars_recursive(default_config)
     
     def _get_default_config(self) -> Dict[str, Any]:
         """Get default configuration values"""
@@ -120,10 +164,10 @@ class ConfigManager:
             },
             'central_server': {
                 'websocket_url': 'ws://localhost:8081',
-                'http_url': 'http://localhost:5001',
+                'http_url': 'http://localhost:4000',
                 'bind_host': '0.0.0.0',
                 'websocket_port': 8081,
-                'http_port': 5001
+                'http_port': 4000
             },
             'timing': {
                 'method': 'gps',
@@ -162,6 +206,11 @@ class ConfigManager:
                 'simulate_gps': False,
                 'mock_sdr': False,
                 'debug_timing': False
+            },
+            'web': {
+                'enabled': True,
+                'port': 7000,
+                'auto_refresh_seconds': 5
             }
         }
     

@@ -505,11 +505,36 @@ class CentralProcessor:
 def main():
     """Main entry point"""
     import sys
+    import os
     
-    # Get parameters from command line
-    host = sys.argv[1] if len(sys.argv) > 1 else "localhost"
-    ws_port = int(sys.argv[2]) if len(sys.argv) > 2 else 8080
-    http_port = int(sys.argv[3]) if len(sys.argv) > 3 else 5001
+    # Load config to get defaults
+    try:
+        from config_manager import ConfigManager
+        config = ConfigManager()
+        server_config = config.get_server_config()
+        default_host = server_config.bind_host
+        default_ws_port = server_config.websocket_port
+        default_http_port = server_config.http_port
+    except:
+        # Fallback if config loading fails
+        default_host = "0.0.0.0"
+        default_ws_port = 8081
+        default_http_port = 4000
+    
+    # Priority: Environment variables > Config file > Command line args
+    host = os.getenv('BIND_HOST', default_host)
+    ws_port = int(os.getenv('WEBSOCKET_PORT', default_ws_port))
+    http_port = int(os.getenv('HTTP_PORT', default_http_port))
+    
+    # Allow command line override (for backward compatibility)
+    if len(sys.argv) > 1:
+        host = sys.argv[1]
+    if len(sys.argv) > 2:
+        ws_port = int(sys.argv[2])
+    if len(sys.argv) > 3:
+        http_port = int(sys.argv[3])
+    
+    logger.info(f"Starting central processor: {host}:{ws_port} (WS), {host}:{http_port} (HTTP)")
     
     # Create and start central processor
     processor = CentralProcessor(host, ws_port, http_port)

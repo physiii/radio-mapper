@@ -29,13 +29,13 @@ sdr:
 # Central Server Configuration
 central_server:
   # For clients connecting to central server
-  websocket_url: "ws://localhost:8081"    # WebSocket URL for real-time data
-  http_url: "http://localhost:5001"       # HTTP API URL
+  websocket_url: "ws://localhost:${WEBSOCKET_PORT:-8081}"    # WebSocket URL for real-time data
+  http_url: "http://localhost:${HTTP_PORT:-4000}"            # HTTP API URL
   
   # For running the central server
-  bind_host: "0.0.0.0"               # Bind to all interfaces (use "localhost" for local only)
-  websocket_port: 8081               # WebSocket server port
-  http_port: 5001                    # HTTP API server port
+  bind_host: "${BIND_HOST:-0.0.0.0}"                         # Bind to all interfaces (use "localhost" for local only)
+  websocket_port: ${WEBSOCKET_PORT:-8081}                    # WebSocket server port
+  http_port: ${HTTP_PORT:-4000}                              # HTTP API server port
   
 # Time Synchronization
 timing:
@@ -177,9 +177,9 @@ storage:
   
 # Web Interface
 web:
-  enabled: true                      # Enable web dashboard
-  port: 5000                         # Web interface port (different from API)
-  auto_refresh_seconds: 5            # Auto-refresh interval
+  enabled: true                           # Enable web dashboard
+  port: ${WEB_PORT:-7000}                 # Web interface port (different from API)
+  auto_refresh_seconds: 5                 # Auto-refresh interval
   
   # Map settings
   default_zoom: 11                   # Default map zoom level

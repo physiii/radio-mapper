@@ -6,14 +6,17 @@ services:
     build: .
     container_name: radio-mapper-central
     ports:
-      - "6001:6001"  # HTTP API
-      - "8081:8081"  # WebSocket for buoys
+      - "${HTTP_PORT:-4000}:${HTTP_PORT:-4000}"          # HTTP API
+      - "${WEBSOCKET_PORT:-8081}:${WEBSOCKET_PORT:-8081}" # WebSocket for buoys
     volumes:
       - ./data:/app/data
       - ./config.yaml:/app/config.yaml:ro
     environment:
       - PYTHONPATH=/app
-    command: ["python3", "central_processor.py", "0.0.0.0", "8081", "6001"]
+      - HTTP_PORT=${HTTP_PORT:-4000}
+      - WEBSOCKET_PORT=${WEBSOCKET_PORT:-8081}
+      - BIND_HOST=${BIND_HOST:-0.0.0.0}
+    command: ["python3", "central_processor.py"]
     restart: always  # Start on boot
     networks:
       - radio-mapper
@@ -23,15 +26,17 @@ services:
     build: .
     container_name: radio-mapper-webapp
     ports:
-      - "4001:6000"  # Web interface
+      - "${WEB_PORT:-7000}:${WEB_PORT:-7000}"             # Web interface
     volumes:
       - ./webapp:/app/webapp
       - ./config.yaml:/app/config.yaml:ro
     environment:
       - PYTHONPATH=/app
       - CENTRAL_HOST=central-processor
-      - CENTRAL_PORT=6001
-      - PORT=6000
+      - CENTRAL_PORT=${HTTP_PORT:-4000}
+      - WEB_PORT=${WEB_PORT:-7000}
+      - HTTP_PORT=${HTTP_PORT:-4000}
+      - WEBSOCKET_PORT=${WEBSOCKET_PORT:-8081}
     depends_on:
       - central-processor
     command: ["python3", "webapp/app.py"]
@@ -51,8 +56,10 @@ services:
       - PYTHONPATH=/app
       - BUOY_ID=HARDWARE_BUOY_1
       - CENTRAL_HOST=central-processor
-      - CENTRAL_PORT=8081
+      - CENTRAL_PORT=${WEBSOCKET_PORT:-8081}
       - DEVELOPMENT_MODE=false
+      - HTTP_PORT=${HTTP_PORT:-4000}
+      - WEBSOCKET_PORT=${WEBSOCKET_PORT:-8081}
     devices:
       - /dev/bus/usb:/dev/bus/usb  # RTL-SDR access
     privileged: true  # Required for hardware access
