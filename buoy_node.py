@@ -61,34 +61,41 @@ class BuoyStatus:
 class GPSTimeSource:
     """Manages GPS-disciplined timing for precision TDoA"""
     
-    def __init__(self):
+    def __init__(self, development_mode: bool = False):
         self.gps_locked = False
         self.timing_accuracy_ns = 1000000  # 1ms default
         self.lat = 0.0
         self.lng = 0.0
         self.last_gps_update = None
+        self.development_mode = development_mode
         
     def initialize_gps(self) -> bool:
         """Initialize GPS module and verify lock"""
-        try:
-            # In production: interface with actual GPS module (e.g., u-blox)
-            # For now: simulate GPS lock with reasonable values
-            logger.info("Initializing GPS timing source...")
-            
-            # Simulate GPS lock after brief delay
-            time.sleep(2)
-            self.gps_locked = True
-            self.timing_accuracy_ns = 100000  # 100 microseconds
-            self.lat = 51.505 + np.random.uniform(-0.01, 0.01)  # Random nearby position
-            self.lng = -0.09 + np.random.uniform(-0.01, 0.01)
-            self.last_gps_update = time.time()
-            
-            logger.info(f"GPS locked: Position ({self.lat:.6f}, {self.lng:.6f}), "
-                       f"Timing accuracy: {self.timing_accuracy_ns/1000:.1f} μs")
-            return True
-            
-        except Exception as e:
-            logger.error(f"GPS initialization failed: {e}")
+        logger.info("Initializing GPS timing source...")
+        if self.development_mode:
+            try:
+                # In development mode, simulate GPS lock with reasonable values
+                logger.info("DEVELOPMENT MODE: Simulating GPS lock.")
+                time.sleep(2)
+                self.gps_locked = True
+                self.timing_accuracy_ns = 100000  # 100 microseconds
+                self.lat = 51.505 + np.random.uniform(-0.01, 0.01)  # Random nearby position
+                self.lng = -0.09 + np.random.uniform(-0.01, 0.01)
+                self.last_gps_update = time.time()
+                
+                logger.info(f"GPS locked: Position ({self.lat:.6f}, {self.lng:.6f}), "
+                           f"Timing accuracy: {self.timing_accuracy_ns/1000:.1f} μs")
+                return True
+                
+            except Exception as e:
+                logger.error(f"GPS initialization failed: {e}")
+                return False
+        else:
+            # In production mode, attempt to connect to a real GPS
+            logger.info("Production mode: searching for real GPS device...")
+            # TODO: Implement actual GPS device communication here
+            logger.warning("No real GPS implementation found. GPS NOT locked.")
+            self.gps_locked = False
             return False
     
     def get_precise_timestamp(self) -> Tuple[str, int]:
@@ -115,12 +122,13 @@ class GPSTimeSource:
 class SignalDetector:
     """Detects radio signals and triggers IQ capture"""
     
-    def __init__(self, buoy_id: str, gps_source: GPSTimeSource):
+    def __init__(self, buoy_id: str, gps_source: GPSTimeSource, development_mode: bool = False):
         self.buoy_id = buoy_id
         self.gps_source = gps_source
         self.monitoring = False
         self.detection_threshold_dbm = -70  # Signal detection threshold
         self.latest_signal_timestamp: Optional[str] = None
+        self.development_mode = development_mode
         
         # GPS-synchronized frequency scanning schedule (35-second cycle)
         self.sync_schedule = [
@@ -159,12 +167,13 @@ class SignalDetector:
                 if not self.monitoring:
                     break
                 
-                # Simulate signal detection for current frequency
-                if self._simulate_signal_detection(current_freq, signal_type):
-                    logger.info(f"Signal detected: {current_freq} MHz, type: {signal_type}")
-                
-                # Brief pause before next detection attempt
-                time.sleep(1.0)
+                if self.development_mode:
+                    # Simulate signal detection for current frequency
+                    if self._simulate_signal_detection(current_freq, signal_type):
+                        logger.info(f"Signal detected: {current_freq} MHz, type: {signal_type}")
+                else:
+                    # In production, we'd use a real SDR here. For now, just wait.
+                    time.sleep(1.0)
                 
             except Exception as e:
                 logger.error(f"Error in signal monitoring: {e}")
@@ -421,15 +430,15 @@ class CentralCommunicator:
 class BuoyNode:
     """Main buoy node class that coordinates all subsystems"""
     
-    def __init__(self, buoy_id: str, central_server_host: str = "localhost", central_server_port: int = 8081):
+    def __init__(self, buoy_id: str, central_server_host: str = "localhost", central_server_port: int = 8081, development_mode: bool = False):
         self.buoy_id = buoy_id
         self.start_time = time.time()
         self.signals_detected_count = 0
         self.running = False
         
         # Initialize subsystems
-        self.gps_source = GPSTimeSource()
-        self.signal_detector = SignalDetector(buoy_id, self.gps_source)
+        self.gps_source = GPSTimeSource(development_mode)
+        self.signal_detector = SignalDetector(buoy_id, self.gps_source, development_mode)
         self.communicator = CentralCommunicator(buoy_id, central_server_host, central_server_port)
         
         logger.info(f"Buoy node {buoy_id} initialized")
@@ -553,11 +562,12 @@ def main():
     buoy_id = os.getenv('BUOY_ID', str(uuid.uuid4()))
     central_host = os.getenv('CENTRAL_HOST', 'localhost')
     central_port = int(os.getenv('CENTRAL_PORT', '8080'))
+    development_mode = os.getenv('DEVELOPMENT_MODE', 'false').lower() == 'true'
     
     logger.info(f"Connecting to central server at {central_host}:{central_port}")
     
     # Create and start buoy node
-    buoy = BuoyNode(buoy_id, central_host, central_port)
+    buoy = BuoyNode(buoy_id, central_host, central_port, development_mode)
     
     try:
         if buoy.startup():

@@ -6,14 +6,14 @@ services:
     build: .
     container_name: radio-mapper-central
     ports:
-      - "5001:5001"  # HTTP API
+      - "6001:6001"  # HTTP API
       - "8081:8081"  # WebSocket for buoys
     volumes:
       - ./data:/app/data
       - ./config.yaml:/app/config.yaml:ro
     environment:
       - PYTHONPATH=/app
-    command: ["python3", "central_processor.py", "0.0.0.0", "8081", "5001"]
+    command: ["python3", "central_processor.py", "0.0.0.0", "8081", "6001"]
     restart: always  # Start on boot
     networks:
       - radio-mapper
@@ -23,14 +23,15 @@ services:
     build: .
     container_name: radio-mapper-webapp
     ports:
-      - "5000:5000"  # Web interface
+      - "6000:6000"  # Web interface
     volumes:
       - ./webapp:/app/webapp
       - ./config.yaml:/app/config.yaml:ro
     environment:
       - PYTHONPATH=/app
       - CENTRAL_HOST=central-processor
-      - CENTRAL_PORT=5001
+      - CENTRAL_PORT=6001
+      - PORT=6000
     depends_on:
       - central-processor
     command: ["python3", "webapp/app.py"]
