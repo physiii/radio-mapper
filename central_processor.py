@@ -102,11 +102,21 @@ class CentralProcessor:
             """Get list of connected nodes"""
             node_list = []
             for node_id, node in self.nodes.items():
+                # Get the most recent coordinates from signal detections for this node
+                latest_lat, latest_lng = node.position[0], node.position[1]
+                
+                # Look for recent signals from this node to get updated coordinates
+                for detection in reversed(self.signal_buffer[-50:]):  # Check last 50 signals
+                    if detection.node_id == node_id:
+                        latest_lat = detection.lat
+                        latest_lng = detection.lng
+                        break  # Use the most recent coordinates
+                
                 node_list.append({
                     'id': node_id,
                     'name': node_id,
-                    'lat': node.position[0],
-                    'lng': node.position[1],
+                    'lat': latest_lat,
+                    'lng': latest_lng,
                     'status': node.status,
                     'lastSeen': node.last_seen.isoformat(),
                     'latest_signal_timestamp': node.latest_signal_timestamp.isoformat() if node.latest_signal_timestamp else None
@@ -252,7 +262,7 @@ class CentralProcessor:
                     if msg_type == 'node_registration':
                         # Register new node
                         node_id = data['node_id']
-                        position = (data.get('lat', 35.4676), data.get('lng', -97.5164))
+                        position = (data.get('lat', 35.5513177334763), data.get('lng', -97.53220535352492))
                         
                         self.nodes[node_id] = NodeConnection(
                             node_id=node_id,
@@ -269,6 +279,22 @@ class CentralProcessor:
                             'status': 'registered',
                             'server_time': datetime.now(timezone.utc).isoformat()
                         }))
+                    
+                    elif msg_type == 'gps_update':
+                        # Update node GPS position
+                        node_id = data.get('node_id')
+                        lat = data.get('lat')
+                        lng = data.get('lng')
+                        
+                        if node_id and lat is not None and lng is not None:
+                            if node_id in self.nodes:
+                                old_position = self.nodes[node_id].position
+                                self.nodes[node_id].position = (lat, lng)
+                                logger.info(f"Updated GPS position for {node_id}: ({lat:.6f}, {lng:.6f}) (was {old_position[0]:.6f}, {old_position[1]:.6f})")
+                            else:
+                                logger.warning(f"Received GPS update for unknown node: {node_id}")
+                        else:
+                            logger.warning(f"Invalid GPS update message: {data}")
                     
                     elif msg_type == 'signal_detection':
                         # Process signal detection

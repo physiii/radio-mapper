@@ -620,6 +620,9 @@
                             <span class="stat-label">Signals Detected</span>
                         </div>
                     </div>
+                    <div style="margin: 12px 0; padding: 8px; background: #f8f9fa; border-radius: 6px; font-size: 13px; text-align: center;" id="triangulationStatus">
+                        <span style="color: #9aa0a6;">No signals detected</span>
+                    </div>
                     <div class="timestamp" id="lastUpdate">
                         Last update: <span id="updateTime"></span>
                     </div>
@@ -705,7 +708,7 @@
         // Initialize map
         var map = L.map('map', {
             zoomControl: false
-        }).setView([35.4676, -97.5164], 11);  // Oklahoma City center
+        }).setView([35.5513177334763, -97.53220535352492], 15);  // Wilshire & Western intersection
         
         // Add zoom control to top right
         L.control.zoom({
@@ -760,8 +763,16 @@
                 .then(detections => {
                     allDetections = detections;
                     updateSignalCount();
-                    displaySignalsOnMap(getLatestDetections());
+                    
+                    // Only show TRIANGULATED signals on map (requires 3+ buoys)
+                    const triangulatedSignals = detections.filter(d => d.triangulated === true);
+                    displaySignalsOnMap(triangulatedSignals);
+                    
+                    // Check for emergency signals (regardless of triangulation)
                     checkEmergencySignals();
+                    
+                    // Update detection counts
+                    updateDetectionStats(detections, triangulatedSignals);
                 })
                 .catch(error => {
                     console.error('Error loading detections:', error);
@@ -817,6 +828,27 @@
 
         function updateSignalCount() {
             document.getElementById('signalCount').textContent = allDetections.length;
+        }
+        
+        function updateDetectionStats(allDetections, triangulatedSignals) {
+            // Update total detections
+            document.getElementById('signalCount').textContent = allDetections.length;
+            
+            // Show triangulation status
+            const triangulatedCount = triangulatedSignals.length;
+            const detectedCount = allDetections.length;
+            
+            // Update the status display to show triangulation capability
+            const statusElement = document.getElementById('triangulationStatus');
+            if (statusElement) {
+                if (triangulatedCount > 0) {
+                    statusElement.innerHTML = `<span style="color: #34a853;">✅ ${triangulatedCount} triangulated</span>`;
+                } else if (detectedCount > 0) {
+                    statusElement.innerHTML = `<span style="color: #fbbc04;">📡 ${detectedCount} detected (location unknown - need 3+ buoys)</span>`;
+                } else {
+                    statusElement.innerHTML = `<span style="color: #9aa0a6;">No signals detected</span>`;
+                }
+            }
         }
 
         function getLatestDetections(max = 50) {

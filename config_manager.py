@@ -143,8 +143,8 @@ class ConfigManager:
                 'id': 'OKC_BUOY_1',
                 'name': 'Oklahoma City Buoy',
                 'location': {
-                    'latitude': 35.4676,
-                    'longitude': -97.5164,
+                    'latitude': 35.5513177334763,
+                    'longitude': -97.53220535352492,
                     'altitude': 365.76
                 },
                 'gps': {
