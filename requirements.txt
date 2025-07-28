@@ -9,6 +9,7 @@ Flask-CORS>=3.0.10
 
 # WebSocket support
 websockets>=10.0
+websocket-client>=1.0.0
 
 # HTTP client
 requests>=2.25.0

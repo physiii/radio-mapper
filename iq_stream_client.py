@@ -29,6 +29,20 @@ import requests
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
+class NumpyJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder for numpy types"""
+    def default(self, obj):
+        if isinstance(obj, (np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.int32, np.int64)):
+            return int(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, complex):
+            return str(obj)
+        return json.JSONEncoder.default(self, obj)
+
 @dataclass
 class SignalDetection:
     """Real signal detection with precise timing"""
@@ -401,7 +415,7 @@ class CentralServerClient:
                 "timestamp": detection.timestamp_utc
             }
             
-            self.websocket.send(json.dumps(message))
+            self.websocket.send(json.dumps(message, cls=NumpyJSONEncoder))
             return True
             
         except Exception as e:

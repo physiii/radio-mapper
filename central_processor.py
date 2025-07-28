@@ -50,6 +50,7 @@ class LiveSignalDetection:
     confidence: float
     signal_type: str
     bandwidth_hz: float = 10000
+    detection_method: str = "unknown"
     iq_samples: Optional[List[complex]] = None
 
 @dataclass
@@ -96,7 +97,12 @@ class CentralProcessor:
         
     def setup_flask_routes(self):
         """Setup Flask routes for web API"""
+        logger.info("Setting up Flask routes...")
         
+        @self.flask_app.route('/')
+        def index():
+            return "Hello, World!"
+            
         @self.flask_app.route('/api/nodes')
         def get_nodes():
             """Get list of connected nodes"""

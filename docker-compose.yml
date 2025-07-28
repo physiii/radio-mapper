@@ -54,9 +54,9 @@ services:
       - /dev:/dev  # SDR device access
     environment:
       - PYTHONPATH=/app
-      - BUOY_ID=HARDWARE_BUOY_1
+      - BUOY_ID=OKC_BUOY_1
       - CENTRAL_HOST=central-processor
-      - CENTRAL_PORT=${WEBSOCKET_PORT:-8081}
+      - CENTRAL_PORT=8081
       - DEVELOPMENT_MODE=false
       - HTTP_PORT=${HTTP_PORT:-4000}
       - WEBSOCKET_PORT=${WEBSOCKET_PORT:-8081}

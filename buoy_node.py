@@ -527,7 +527,7 @@ class SignalDetector:
 class CentralCommunicator:
     """Handles communication with central TDoA processing server"""
     
-    def __init__(self, buoy_id: str, central_server_host: str = "localhost", central_server_port: int = 8080):
+    def __init__(self, buoy_id: str, central_server_host: str = "localhost", central_server_port: int = 8081):
         self.buoy_id = buoy_id
         self.server_host = central_server_host
         self.server_port = central_server_port
@@ -818,7 +818,7 @@ def main():
     # Get configuration from environment variables or defaults
     buoy_id = os.getenv('BUOY_ID', str(uuid.uuid4()))
     central_host = os.getenv('CENTRAL_HOST', 'localhost')
-    central_port = int(os.getenv('CENTRAL_PORT', '8080'))
+    central_port = int(os.getenv('CENTRAL_PORT', '8081'))
     development_mode = os.getenv('DEVELOPMENT_MODE', 'false').lower() == 'true'
     
     logger.info(f"Connecting to central server at {central_host}:{central_port}")
