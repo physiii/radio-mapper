@@ -1,0 +1,21 @@
+[Unit]
+Description=Reverse SSH tunnel for radio‑mapper
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=andy
+Environment="AUTOSSH_GATETIME=0"
+ExecStart=/usr/bin/autossh -M 0 \
+  -i /home/andy/.ssh/id_radio_mapper \
+  -o "ServerAliveInterval 30" -o "ServerAliveCountMax 3" \
+  -N -T \
+  -R 127.0.0.1:4000:localhost:7000 \
+  -R 127.0.0.1:4001:localhost:7000 \
+  -R 127.0.0.1:4002:localhost:8080 \
+  andy@142.93.57.114
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target 
